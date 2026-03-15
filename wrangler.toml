@@ -4,5 +4,5 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "placeholder_kv_id"
+id = "e09e5989d46b48fb9f4cd8ecd423ff74"
 preview_id = "placeholder_preview_id"
