@@ -67,7 +67,7 @@
     switch (protocol) {
       case 'MCP': return 'https://my-agent.example.com/mcp';
       case 'A2A': return 'https://my-agent.example.com/a2a';
-      case 'Email': return 'mailto:agent@example.com';
+      case 'Email': return 'name@email.com';
       case 'Web': return 'https://my-agent.example.com';
       case 'Custom': return 'Enter endpoint URL or identifier';
       default: return 'https://...';
