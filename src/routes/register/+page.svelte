@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import QRDisplay from '$lib/components/QRDisplay.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
@@ -114,36 +115,112 @@
     if (!$walletAddress) return;
 
     try {
-      const { requestRegistration } = await import('@selfxyz/agent-sdk');
-
-      const session = await requestRegistration({
-        mode: 'linked',
-        network: 'mainnet',
-        humanAddress: $walletAddress,
-        agentName,
-        agentDescription,
+      // Step 1: Call Self Agent ID API to get a session + deepLink
+      const res = await fetch('https://app.ai.self.xyz/api/agent/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'linked',
+          network: 'mainnet',
+          humanAddress: $walletAddress,
+          agentName,
+          agentDescription,
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Registration API error: ${res.status}`);
+      }
+      const session = await res.json();
 
-      // Set the deep link FIRST so QR renders immediately
+      if (!session.deepLink) throw new Error('No deepLink in registration response');
+
+      // Extract sessionId from the deepLink
+      const deepLinkUrl = new URL(session.deepLink);
+      const selfAppParam = deepLinkUrl.searchParams.get('selfApp');
+      if (!selfAppParam) throw new Error('No selfApp param in deepLink');
+      const selfAppData = JSON.parse(decodeURIComponent(selfAppParam));
+      const sessionId: string = selfAppData.sessionId;
+
+      // Step 2: Show QR — update state and flush DOM before connecting socket
       selfDeepLink = session.deepLink;
       qrStatus = 'waiting';
-      mintStatus = 'polling'; // This triggers the QR display in the template
+      mintStatus = 'polling';
+      await tick();
 
-      // Now wait for the human to scan and the proof to be verified on-chain
-      const result = await session.waitForCompletion({ timeoutMs: 10 * 60 * 1000 });
+      // Step 3: Connect to Self WebSocket relay and wait for proof_verified
+      await new Promise<void>((resolve, reject) => {
+        // Dynamic import to avoid SSR issues
+        import('socket.io-client').then(({ io }) => {
+          const socket = io('wss://websocket.self.xyz/websocket', {
+            path: '/',
+            query: { sessionId, clientType: 'web' },
+            transports: ['websocket'],
+          });
 
-      mintedAgentId = result.agentId;
-      mintedTxHash = result.txHash ?? '';
-      qrStatus = 'done';
+          const timeout = setTimeout(() => {
+            socket.disconnect();
+            reject(new Error('Self verification timed out (10 min). Please try again.'));
+          }, 10 * 60 * 1000);
 
-      // Brief pause so user sees the success state on the QR
+          socket.on('connect', () => {
+            console.log('[Self WS] Connected, sessionId:', sessionId);
+          });
+
+          socket.on('connect_error', (err) => {
+            console.error('[Self WS] Connection error:', err.message);
+          });
+
+          socket.on('mobile_status', async (data: { status: string; [k: string]: any }) => {
+            console.log('[Self WS] mobile_status:', data.status);
+            switch (data.status) {
+              case 'mobile_connected':
+                qrStatus = 'connected';
+                await tick();
+                // Tell the relay what app/config to send to the phone
+                socket.emit('self_app', { ...selfAppData, sessionId });
+                break;
+              case 'mobile_disconnected':
+                qrStatus = 'waiting';
+                await tick();
+                break;
+              case 'proof_generation_started':
+              case 'proof_generated':
+                qrStatus = 'generating';
+                await tick();
+                break;
+              case 'proof_generation_failed':
+                clearTimeout(timeout);
+                socket.disconnect();
+                reject(new Error('ZK proof generation failed on the Self app. Please try again.'));
+                break;
+              case 'proof_verified':
+                clearTimeout(timeout);
+                qrStatus = 'done';
+                await tick();
+                // Extract agentId from the on-chain data in the response
+                mintedAgentId = data.agentId ?? data.tokenId ?? null;
+                mintedTxHash = data.txHash ?? data.transactionHash ?? '';
+                socket.disconnect();
+                resolve();
+                break;
+            }
+          });
+
+          socket.on('disconnect', (reason) => {
+            console.log('[Self WS] Disconnected:', reason);
+          });
+        }).catch(reject);
+      });
+
       await new Promise(r => setTimeout(r, 1200));
       mintStatus = 'done';
       step = 4 as Step;
+
     } catch (e: any) {
       qrStatus = 'error';
       mintStatus = 'error';
-      mintError = e.message ?? 'Celo registration failed';
+      mintError = e.message ?? `Celo registration failed: ${String(e)}`;
     }
   }
 
