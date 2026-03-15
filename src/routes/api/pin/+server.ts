@@ -57,16 +57,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
     return json({ cid: mockCid, mock: true });
   }
 
-  const pinRes = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+  // Pinata v3 API: upload JSON as a file via multipart/form-data
+  const blob = new Blob([JSON.stringify(registrationFile)], { type: 'application/json' });
+  const formData = new FormData();
+  formData.append('file', blob, `waymint-agent-${body.name}.json`);
+  formData.append('name', `waymint-agent-${body.name}`);
+
+  const pinRes = await fetch('https://uploads.pinata.cloud/v3/files', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       Authorization: `Bearer ${pinatJWT}`,
+      // Do NOT set Content-Type — browser sets it with boundary for multipart
     },
-    body: JSON.stringify({
-      pinataContent: registrationFile,
-      pinataMetadata: { name: `waymint-agent-${body.name}` },
-    }),
+    body: formData,
   });
 
   if (!pinRes.ok) {
@@ -75,6 +78,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
     throw error(502, 'Failed to pin to IPFS');
   }
 
-  const { IpfsHash } = await pinRes.json();
-  return json({ cid: IpfsHash });
+  const result = await pinRes.json();
+  // v3 response: { data: { cid: "Qm...", ... } }
+  const cid = result?.data?.cid;
+  if (!cid) throw error(502, 'Pinata returned no CID');
+  return json({ cid });
 };
