@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import QRDisplay from '$lib/components/QRDisplay.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
@@ -116,6 +117,7 @@
     try {
       const { requestRegistration } = await import('@selfxyz/agent-sdk');
 
+      // Call the Self SDK — returns immediately with a deepLink
       const session = await requestRegistration({
         mode: 'linked',
         network: 'mainnet',
@@ -124,26 +126,28 @@
         agentDescription,
       });
 
-      // Set the deep link FIRST so QR renders immediately
+      // Set deepLink + status, then flush DOM with tick() so QR renders
+      // BEFORE waitForCompletion() starts blocking the event loop
       selfDeepLink = session.deepLink;
       qrStatus = 'waiting';
-      mintStatus = 'polling'; // This triggers the QR display in the template
+      mintStatus = 'polling';
+      await tick(); // ← critical: forces Svelte to update the DOM now
 
-      // Now wait for the human to scan and the proof to be verified on-chain
+      // Now block waiting for the human to scan
       const result = await session.waitForCompletion({ timeoutMs: 10 * 60 * 1000 });
 
       mintedAgentId = result.agentId;
       mintedTxHash = result.txHash ?? '';
       qrStatus = 'done';
+      await tick();
 
-      // Brief pause so user sees the success state on the QR
       await new Promise(r => setTimeout(r, 1200));
       mintStatus = 'done';
       step = 4 as Step;
     } catch (e: any) {
       qrStatus = 'error';
       mintStatus = 'error';
-      mintError = e.message ?? 'Celo registration failed';
+      mintError = e.message ?? `Celo registration failed: ${String(e)}`;
     }
   }
 
