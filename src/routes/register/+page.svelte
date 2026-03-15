@@ -2,9 +2,7 @@
   import Stepper from '$lib/components/Stepper.svelte';
   import QRDisplay from '$lib/components/QRDisplay.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
-  import { generateAgentKeypair, downloadKeyAsJSON } from '$lib/agentKey';
   import { pinToIPFS } from '$lib/ipfs';
-  import type { AgentKeypair } from '$lib/agentKey';
 
   // ── Wizard state ──────────────────────────────────────────────────────────
   type Network = 'celo' | 'base';
@@ -14,8 +12,7 @@
 
   let step: Step = 0;
   let network: Network | null = null;
-  let keypair: AgentKeypair | null = null;
-  let keySaved = false;
+  let agentAddressInput = '';
 
   // Agent details form
   let agentName = '';
@@ -38,6 +35,10 @@
   let qrStatus: QRStatus = 'waiting';
   let selfDeepLink = '';
 
+  // Base Coinbase verification prompt
+  let showCoinbasePrompt = false;
+  let proceedUnverified = false;
+
   // ── Navigation ────────────────────────────────────────────────────────────
   function goNext() { step = (step + 1) as Step; }
   function goBack() { step = (step - 1) as Step; }
@@ -53,22 +54,6 @@
     await connectWallet();
   }
 
-  async function handleGenerateKey() {
-    keypair = await generateAgentKeypair();
-    keySaved = false;
-  }
-
-  function handleDownloadKey() {
-    if (keypair) {
-      downloadKeyAsJSON(keypair, agentName || 'my-agent');
-      keySaved = true;
-    }
-  }
-
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).catch(() => {});
-  }
-
   // ── Step 3: Endpoints ─────────────────────────────────────────────────────
   function addEndpoint() {
     endpoints = [...endpoints, { protocol: 'Web', url: '', version: '' }];
@@ -78,34 +63,45 @@
     endpoints = endpoints.filter((_, idx) => idx !== i);
   }
 
+  function getEndpointPlaceholder(protocol: string): string {
+    switch (protocol) {
+      case 'MCP': return 'https://my-agent.example.com/mcp';
+      case 'A2A': return 'https://my-agent.example.com/a2a';
+      case 'Email': return 'name@email.com';
+      case 'Web': return 'https://my-agent.example.com';
+      case 'Custom': return 'Enter endpoint URL or identifier';
+      default: return 'https://...';
+    }
+  }
+
   // ── Step 4: Mint ──────────────────────────────────────────────────────────
   async function startMint() {
     mintStatus = 'pinning';
     mintError = '';
 
     try {
-      const validEndpoints = endpoints.filter((e) => e.url.trim());
-      const registrationData = {
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1' as const,
-        name: agentName,
-        description: agentDescription,
-        ...(agentImage.trim() ? { image: agentImage.trim() } : {}),
-        services: validEndpoints.map((e) => ({
-          name: e.protocol,
-          endpoint: e.url,
-          ...(e.version.trim() ? { version: e.version } : {}),
-        })),
-        x402Support: false,
-        active: true,
-        supportedTrust: ['reputation'],
-      };
-
-      agentURI = await pinToIPFS(registrationData);
-      mintStatus = 'minting';
-
       if (network === 'celo') {
+        // For Celo, Self SDK handles the registration file internally
+        mintStatus = 'minting';
         await mintCelo();
       } else {
+        // Base: pin first, then mint
+        const validEndpoints = endpoints.filter((e) => e.url.trim());
+        agentURI = await pinToIPFS({
+          type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+          name: agentName,
+          description: agentDescription,
+          ...(agentImage.trim() ? { image: agentImage.trim() } : {}),
+          services: validEndpoints.map((e) => ({
+            name: e.protocol,
+            endpoint: e.url,
+            ...(e.version.trim() ? { version: e.version } : {}),
+          })),
+          x402Support: false,
+          active: true,
+          supportedTrust: ['reputation'],
+        });
+        mintStatus = 'minting';
         await mintBaseWithViem();
       }
     } catch (e: any) {
@@ -115,27 +111,33 @@
   }
 
   async function mintCelo() {
-    if (!$walletAddress || !keypair) return;
-
-    const { requestRegistration } = await import('@selfxyz/agent-sdk');
-
-    const session = await requestRegistration({
-      mode: 'linked',
-      network: 'mainnet',
-      humanAddress: $walletAddress,
-      agentName,
-      agentDescription,
-    });
-
-    selfDeepLink = session.deepLink;
-    qrStatus = 'waiting';
-    mintStatus = 'polling';
+    if (!$walletAddress) return;
 
     try {
+      const { requestRegistration } = await import('@selfxyz/agent-sdk');
+
+      const session = await requestRegistration({
+        mode: 'linked',
+        network: 'mainnet',
+        humanAddress: $walletAddress,
+        agentName,
+        agentDescription,
+      });
+
+      // Set the deep link FIRST so QR renders immediately
+      selfDeepLink = session.deepLink;
+      qrStatus = 'waiting';
+      mintStatus = 'polling'; // This triggers the QR display in the template
+
+      // Now wait for the human to scan and the proof to be verified on-chain
       const result = await session.waitForCompletion({ timeoutMs: 10 * 60 * 1000 });
+
       mintedAgentId = result.agentId;
       mintedTxHash = result.txHash ?? '';
       qrStatus = 'done';
+
+      // Brief pause so user sees the success state on the QR
+      await new Promise(r => setTimeout(r, 1200));
       mintStatus = 'done';
       step = 4 as Step;
     } catch (e: any) {
@@ -146,7 +148,7 @@
   }
 
   async function mintBaseWithViem() {
-    if (!$walletAddress || !keypair || typeof window === 'undefined' || !window.ethereum) {
+    if (!$walletAddress || typeof window === 'undefined' || !window.ethereum) {
       mintError = 'Wallet not connected';
       mintStatus = 'error';
       return;
@@ -206,17 +208,10 @@
         hasVerification = false;
       }
 
-      if (!hasVerification) {
-        const proceed = confirm(
-          'Your wallet does not have a Coinbase Verification attestation.\n\n' +
-          'You can still register, but your agent will show as "Unverified" instead of "Verified Human".\n\n' +
-          'To get verified: visit coinbase.com/onchain-verify and return here.\n\n' +
-          'Proceed without verification?'
-        );
-        if (!proceed) {
-          mintStatus = 'idle';
-          return;
-        }
+      if (!hasVerification && !proceedUnverified) {
+        showCoinbasePrompt = true;
+        mintStatus = 'idle';
+        return;
       }
 
       // Call register(agentURI) via viem walletClient
@@ -256,7 +251,7 @@
   }
 
   // Validation helpers
-  $: step2Valid = !!$walletAddress && !!keypair;
+  $: step2Valid = !!$walletAddress && /^0x[a-fA-F0-9]{40}$/.test(agentAddressInput);
   $: step3Valid = agentName.trim().length >= 3 && endpoints.some((e) => e.url.trim());
   $: agentCertUrl = mintedAgentId !== null ? `/agent/${network}:${mintedAgentId}` : '';
   $: ownerUrl = $walletAddress ? `/owner/${$walletAddress}` : '';
@@ -331,8 +326,8 @@
       <!-- Step 1: Wallet & Key -->
       {:else if step === 1}
         <div class="step-content">
-          <h2 class="step-title">Connect wallet &amp; generate agent key</h2>
-          <p class="step-sub">Your wallet establishes ownership of the agent NFT. A separate agent keypair is generated for the agent's operational identity.</p>
+          <h2 class="step-title">Connect wallet &amp; agent address</h2>
+          <p class="step-sub">Your wallet establishes ownership of the agent NFT. Your agent should generate its own keypair.</p>
 
           <div class="card section-card">
             <h3 class="section-label">1. Connect your wallet</h3>
@@ -352,41 +347,23 @@
             {/if}
           </div>
 
-          <div class="card section-card" class:disabled={!$walletAddress}>
-            <h3 class="section-label">2. Generate agent keypair</h3>
-            <p class="muted-text">A fresh ECDSA keypair is generated in your browser. The private key is shown once — save it now.</p>
-
-            {#if keypair}
-              <div class="key-display">
-                <div class="key-row">
-                  <span class="key-label">Agent address</span>
-                  <div class="key-value-row">
-                    <code class="mono key-val">{keypair.address}</code>
-                    <button class="copy-btn" on:click={() => copyToClipboard(keypair?.address ?? '')} title="Copy">&#x2398;</button>
-                  </div>
-                </div>
-                <div class="key-row">
-                  <span class="key-label">Private key <span class="warning-tag">Show once</span></span>
-                  <div class="key-value-row">
-                    <code class="mono key-val pk">{keypair.privateKeyHex}</code>
-                    <button class="copy-btn" on:click={() => copyToClipboard(keypair?.privateKeyHex ?? '')} title="Copy">&#x2398;</button>
-                  </div>
-                </div>
-                <div class="key-actions">
-                  <button class="btn btn-primary" on:click={handleDownloadKey}>
-                    Download JSON
-                  </button>
-                  {#if keySaved}
-                    <span class="badge badge-verified">Saved</span>
-                  {/if}
-                </div>
-                <p class="warning-text">Anyone with this private key controls your agent. Store it securely.</p>
-              </div>
-            {:else}
-              <button class="btn btn-secondary" on:click={handleGenerateKey} disabled={!$walletAddress}>
-                Generate Keypair
-              </button>
-            {/if}
+          <div class="card section-card info-card" class:disabled={!$walletAddress}>
+            <h3 class="section-label">2. Agent address</h3>
+            <p class="muted-text">Your agent should generate its own keypair.</p>
+            <p class="muted-text">If you are an agent, generate your ECDSA keypair now and have your address ready. If you are a human setting this up, ask your agent to generate a keypair and give you the agent address before proceeding.</p>
+            <a href="/skill.md" class="muted-link">&rarr; How agents self-register (skill.md)</a>
+            <div class="form-group" style="margin-top: 1rem;">
+              <label class="form-label" for="agentAddress">Agent address <span class="required">*</span></label>
+              <input
+                id="agentAddress"
+                type="text"
+                class="form-input"
+                bind:value={agentAddressInput}
+                placeholder="0x..."
+                pattern="^0x[a-fA-F0-9]{'{'}40{'}'}"
+              />
+              <span class="form-hint">The Ethereum address your agent generated for itself</span>
+            </div>
           </div>
 
           <div class="step-nav">
@@ -448,29 +425,43 @@
             <p class="muted-text">At least one endpoint is required.</p>
 
             {#each endpoints as ep, i}
-              <div class="endpoint-row">
-                <select class="form-input ep-protocol" bind:value={ep.protocol}>
-                  <option value="MCP">MCP</option>
-                  <option value="A2A">A2A</option>
-                  <option value="Web">Web</option>
-                  <option value="Email">Email</option>
-                  <option value="Custom">Custom</option>
-                </select>
-                <input
-                  type="url"
-                  class="form-input ep-url"
-                  bind:value={ep.url}
-                  placeholder="https://..."
-                />
-                <input
-                  type="text"
-                  class="form-input ep-version"
-                  bind:value={ep.version}
-                  placeholder="version (opt)"
-                />
-                {#if endpoints.length > 1}
-                  <button class="remove-btn" on:click={() => removeEndpoint(i)} title="Remove">&#x2715;</button>
-                {/if}
+              <div class="endpoint-card-item">
+                <div class="endpoint-card-header">
+                  <span class="endpoint-card-num">Endpoint {i + 1}</span>
+                  {#if endpoints.length > 1}
+                    <button class="remove-btn" on:click={() => removeEndpoint(i)}>&#x2715; Remove</button>
+                  {/if}
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="ep-protocol-{i}">Protocol</label>
+                  <select id="ep-protocol-{i}" class="form-input" bind:value={ep.protocol}>
+                    <option value="MCP">MCP</option>
+                    <option value="A2A">A2A</option>
+                    <option value="Web">Web</option>
+                    <option value="Email">Email</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="ep-url-{i}">Endpoint URL</label>
+                  <input
+                    id="ep-url-{i}"
+                    type="text"
+                    class="form-input"
+                    bind:value={ep.url}
+                    placeholder={getEndpointPlaceholder(ep.protocol)}
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="ep-version-{i}">Version <span class="optional">(optional)</span></label>
+                  <input
+                    id="ep-version-{i}"
+                    type="text"
+                    class="form-input"
+                    bind:value={ep.version}
+                    placeholder="e.g. 2025-06-18"
+                  />
+                </div>
               </div>
             {/each}
 
@@ -498,7 +489,7 @@
             <div class="summary-row"><span>Network</span> <span class="badge {network === 'celo' ? 'badge-celo' : 'badge-base'}">{network === 'celo' ? 'Celo Mainnet' : 'Base Mainnet'}</span></div>
             <div class="summary-row"><span>Agent name</span> <strong>{agentName}</strong></div>
             <div class="summary-row"><span>Owner wallet</span> <code class="mono">{truncate($walletAddress ?? '')}</code></div>
-            <div class="summary-row"><span>Agent address</span> <code class="mono">{truncate(keypair?.address ?? '')}</code></div>
+            <div class="summary-row"><span>Agent address</span> <code class="mono">{truncate(agentAddressInput)}</code></div>
             <div class="summary-row"><span>Endpoints</span> <span>{endpoints.filter(e => e.url.trim()).length}</span></div>
           </div>
 
@@ -570,7 +561,33 @@
             <div class="card error-card">
               <h3>Registration failed</h3>
               <p>{mintError}</p>
-              <button class="btn btn-secondary" on:click={() => { mintStatus = 'idle'; }}>Try again</button>
+              <div class="step-nav" style="border-top: none; padding-top: 0; margin-top: 1rem;">
+                <button class="btn btn-secondary" on:click={goBack}>Back</button>
+                <button class="btn btn-secondary" on:click={() => { mintStatus = 'idle'; }}>Try again</button>
+              </div>
+            </div>
+          {/if}
+
+          {#if showCoinbasePrompt}
+            <div class="card coinbase-prompt">
+              <h3>Coinbase Verification required</h3>
+              <p>Your wallet doesn't have a Coinbase Verification attestation on Base. This is needed to register as a "Verified Human" agent.</p>
+              <ol class="steps-list">
+                <li>Visit <a href="https://www.coinbase.com/onchain-verify" target="_blank" rel="noopener">coinbase.com/onchain-verify</a> and complete verification</li>
+                <li>Return here and click "Check again"</li>
+              </ol>
+              <div class="prompt-actions">
+                <a href="https://www.coinbase.com/onchain-verify" target="_blank" rel="noopener" class="btn btn-primary">
+                  Get verified on Coinbase &rarr;
+                </a>
+                <button class="btn btn-secondary" on:click={() => { showCoinbasePrompt = false; startMint(); }}>
+                  Check again
+                </button>
+                <button class="btn btn-secondary" on:click={() => { showCoinbasePrompt = false; proceedUnverified = true; startMint(); }}>
+                  Continue without verification
+                </button>
+              </div>
+              <p class="prompt-note">Without verification your agent will show as "Unverified" on its certificate page.</p>
             </div>
           {/if}
         </div>
@@ -608,20 +625,13 @@
             <a href={ownerUrl} class="btn btn-secondary">View Owner Profile</a>
           </div>
 
-          {#if keypair && !keySaved}
-            <div class="card key-reminder">
-              <h3>Save your agent private key</h3>
-              <p>You have not downloaded your agent private key yet. Save it now — it cannot be recovered.</p>
-              <button class="btn btn-primary" on:click={handleDownloadKey}>Download Agent Key</button>
-            </div>
-          {/if}
-
           <div class="register-another">
             <a href="/register" class="muted-link" on:click|preventDefault={() => {
-              step = 0; network = null; keypair = null; keySaved = false;
+              step = 0; network = null; agentAddressInput = '';
               agentName = ''; agentDescription = ''; agentImage = '';
               endpoints = [{ protocol: 'MCP', url: '', version: '' }];
               mintStatus = 'idle'; mintedAgentId = null; mintedTxHash = '';
+              showCoinbasePrompt = false; proceedUnverified = false;
             }}>Register another agent</a>
           </div>
         </div>
@@ -686,29 +696,41 @@
   .muted-text { font-size: 0.875rem; color: var(--muted-foreground); margin-bottom: 1rem; }
   .error-text { font-size: 0.875rem; color: var(--destructive); margin-bottom: 0.75rem; }
 
-  .key-display { display: flex; flex-direction: column; gap: 1rem; }
-  .key-row { display: flex; flex-direction: column; gap: 0.35rem; }
-  .key-label { font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); display: flex; align-items: center; gap: 0.5rem; }
-  .warning-tag { background: color-mix(in srgb, var(--brand-offset-yellow) 15%, transparent); color: var(--brand-offset-yellow); border-radius: 4px; padding: 0.1rem 0.35rem; font-size: 0.7rem; }
-  .key-value-row { display: flex; align-items: center; gap: 0.5rem; }
-  .key-val { font-size: 0.75rem; background: var(--muted); padding: 0.4rem 0.6rem; border-radius: 6px; word-break: break-all; flex: 1; }
-  .pk { color: var(--brand-offset-yellow); }
-  .copy-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.5rem; cursor: pointer; color: var(--muted-foreground); font-size: 0.9rem; flex-shrink: 0; }
-  .copy-btn:hover { background: var(--muted); color: var(--foreground); }
-  .key-actions { display: flex; align-items: center; gap: 0.75rem; }
-  .warning-text { font-size: 0.8rem; color: var(--brand-offset-yellow); }
-
   .form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem; }
   .form-label { font-size: 0.85rem; font-weight: 600; font-family: var(--font-heading); }
   .required { color: var(--destructive); }
   .optional { color: var(--muted-foreground); font-weight: 400; }
   .form-hint { font-size: 0.75rem; color: var(--muted-foreground); }
 
-  .endpoint-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
-  .ep-protocol { width: 90px; flex-shrink: 0; }
-  .ep-url { flex: 1; min-width: 0; }
-  .ep-version { width: 110px; flex-shrink: 0; }
-  .remove-btn { background: none; border: 1px solid var(--border); color: var(--muted-foreground); border-radius: 6px; padding: 0.4rem 0.6rem; cursor: pointer; flex-shrink: 0; }
+  .endpoint-card-item {
+    background: color-mix(in srgb, var(--foreground) 3%, transparent);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 1.1);
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .endpoint-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .endpoint-card-num {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .remove-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
   .remove-btn:hover { color: var(--destructive); border-color: var(--destructive); }
   .add-ep-btn { margin-top: 0.5rem; }
 
@@ -733,10 +755,13 @@
   .success-step { text-align: center; }
   .success-icon { font-size: 3rem; margin-bottom: 1rem; }
   .success-links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin: 1.5rem 0; }
-  .key-reminder { text-align: left; outline-color: var(--brand-offset-yellow); margin-bottom: 1rem; }
-  .key-reminder h3 { color: var(--brand-offset-yellow); margin-bottom: 0.5rem; }
-  .key-reminder p { font-size: 0.875rem; color: var(--muted-foreground); margin-bottom: 1rem; }
   .register-another { margin-top: 1.5rem; }
+
+  .coinbase-prompt { border-color: var(--brand-offset-blue); margin-bottom: 1.5rem; }
+  .coinbase-prompt h3 { margin-bottom: 0.5rem; }
+  .coinbase-prompt p { font-size: 0.875rem; color: var(--muted-foreground); margin-bottom: 1rem; }
+  .prompt-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+  .prompt-note { font-size: 0.8rem; color: var(--muted-foreground); margin-top: 0.75rem; }
   .muted-link { color: var(--muted-foreground); font-size: 0.875rem; cursor: pointer; }
   .muted-link:hover { color: var(--foreground); }
 

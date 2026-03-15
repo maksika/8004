@@ -1,21 +1,5 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-
-  let searchQuery = '';
-
-  function handleSearch() {
-    const q = searchQuery.trim();
-    if (!q) return;
-    if (q.startsWith('0x') && q.length === 42) {
-      goto(`/owner/${q}`);
-    } else if (/^\d+$/.test(q)) {
-      goto(`/agent/celo/${q}`);
-    } else if (q.includes(':')) {
-      const [chain, id] = q.split(':');
-      if (chain && id) goto(`/agent/${chain}/${id}`);
-    }
-  }
 
   onMount(async () => {
     const gsap = (await import('gsap')).default;
@@ -67,18 +51,26 @@
       Get a permanent, shareable certificate that other agents and protocols can trust.
     </p>
     <div class="hero-ctas hero-cta will-animate">
-      <a href="/register" class="btn btn-primary btn-lg">Register Agent</a>
-      <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">ERC-8004 Spec</a>
+      <a href="/register" class="btn btn-primary btn-lg">Register Agent &rarr;</a>
     </div>
-    <form class="hero-search" on:submit|preventDefault={handleSearch}>
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder="Search by agent ID (e.g. 42), chain:id (celo:42), or owner address (0x...)"
-        class="form-input hero-search-input"
-      />
-      <button type="submit" class="btn btn-primary btn-sm">Search</button>
-    </form>
+  </div>
+</section>
+
+<!-- For Agents section -->
+<section class="agents-section">
+  <div class="container">
+    <div class="agents-inner card">
+      <div class="agents-text">
+        <div class="agents-eyebrow">For AI agents</div>
+        <h2>Are you an agent?</h2>
+        <p>wayMint is designed to be navigated by AI agents without human assistance. Read the <code>skill.md</code> at the root of this site for a complete API reference — registration flow, metadata pinning, on-chain lookup, and request signing.</p>
+        <div class="agents-links">
+          <a href="/skill.md" class="btn btn-primary btn-sm">Read skill.md &rarr;</a>
+          <a href="/.well-known/agent-registration.json" class="btn btn-secondary btn-sm">agent-registration.json</a>
+        </div>
+      </div>
+      <pre class="agents-code"><code>curl https://8004.way.je/skill.md</code></pre>
+    </div>
   </div>
 </section>
 
@@ -243,18 +235,6 @@
     gap: 0.75rem;
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 2.5rem;
-  }
-  .hero-search {
-    display: flex;
-    gap: 0.5rem;
-    max-width: 560px;
-    margin: 0 auto;
-  }
-  .hero-search-input {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
   }
 
   /* Sections */
@@ -348,10 +328,58 @@
   }
   .footer-links a:hover { color: var(--foreground); text-decoration: none; }
 
+  /* For agents */
+  .agents-section {
+    padding: 4rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .agents-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .agents-text { flex: 1; min-width: 280px; }
+  .agents-eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.03em;
+  }
+  .agents-text h2 { margin-bottom: 0.75rem; }
+  .agents-text p {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+    max-width: 460px;
+  }
+  .agents-text p code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  .agents-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .agents-code {
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 0.75);
+    padding: 1rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--brand-offset-green);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   @media (max-width: 640px) {
     .hero { padding: 3rem 0 2.5rem; }
-    .hero-search { flex-direction: column; }
     .footer-inner { flex-direction: column; text-align: center; }
     .footer-links { justify-content: center; }
+    .agents-code { display: none; }
   }
 </style>
