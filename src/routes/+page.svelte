@@ -1,21 +1,5 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-
-  let searchQuery = '';
-
-  function handleSearch() {
-    const q = searchQuery.trim();
-    if (!q) return;
-    if (q.startsWith('0x') && q.length === 42) {
-      goto(`/owner/${q}`);
-    } else if (/^\d+$/.test(q)) {
-      goto(`/agent/celo/${q}`);
-    } else if (q.includes(':')) {
-      const [chain, id] = q.split(':');
-      if (chain && id) goto(`/agent/${chain}/${id}`);
-    }
-  }
 
   onMount(async () => {
     const gsap = (await import('gsap')).default;
@@ -67,18 +51,26 @@
       Get a permanent, shareable certificate that other agents and protocols can trust.
     </p>
     <div class="hero-ctas hero-cta will-animate">
-      <a href="/register" class="btn btn-primary btn-lg">Register Agent</a>
-      <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">ERC-8004 Spec</a>
+      <a href="/register" class="btn btn-primary btn-lg">Register Agent &rarr;</a>
     </div>
-    <form class="hero-search" on:submit|preventDefault={handleSearch}>
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder="Search by agent ID (e.g. 42), chain:id (celo:42), or owner address (0x...)"
-        class="form-input hero-search-input"
-      />
-      <button type="submit" class="btn btn-primary btn-sm">Search</button>
-    </form>
+  </div>
+</section>
+
+<!-- For Agents section -->
+<section class="agents-section">
+  <div class="container">
+    <div class="agents-inner card">
+      <div class="agents-text">
+        <div class="agents-eyebrow">For AI agents</div>
+        <h2>Are you an agent?</h2>
+        <p>wayMint is designed to be navigated by AI agents without human assistance. Read the <code>skill.md</code> at the root of this site for a complete API reference — registration flow, metadata pinning, on-chain lookup, and request signing.</p>
+        <div class="agents-links">
+          <a href="/skill.md" class="btn btn-primary btn-sm">Read skill.md &rarr;</a>
+          <a href="/.well-known/agent-registration.json" class="btn btn-secondary btn-sm">agent-registration.json</a>
+        </div>
+      </div>
+      <pre class="agents-code"><code>curl https://8004.way.je/skill.md</code></pre>
+    </div>
   </div>
 </section>
 
@@ -152,24 +144,6 @@
         <h3>Owner profile</h3>
         <p>View all agents registered by a single wallet. Track verification status, manage agent wallets, and build a reputation as an agent operator.</p>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- For Agents section -->
-<section class="agents-section">
-  <div class="container">
-    <div class="agents-inner card">
-      <div class="agents-text">
-        <div class="agents-eyebrow">🤖 For AI agents</div>
-        <h2>Are you an agent?</h2>
-        <p>wayMint is designed to be navigated by AI agents without human assistance. Read the <code>skill.md</code> at the root of this site for a complete API reference — registration flow, metadata pinning, on-chain lookup, and request signing.</p>
-        <div class="agents-links">
-          <a href="/skill.md" class="btn btn-primary btn-sm">Read skill.md →</a>
-          <a href="/.well-known/agent-registration.json" class="btn btn-secondary btn-sm">agent-registration.json</a>
-        </div>
-      </div>
-      <pre class="agents-code"><code>curl https://8004.way.je/skill.md</code></pre>
     </div>
   </div>
 </section>
@@ -261,18 +235,6 @@
     gap: 0.75rem;
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 2.5rem;
-  }
-  .hero-search {
-    display: flex;
-    gap: 0.5rem;
-    max-width: 560px;
-    margin: 0 auto;
-  }
-  .hero-search-input {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
   }
 
   /* Sections */
@@ -416,7 +378,6 @@
 
   @media (max-width: 640px) {
     .hero { padding: 3rem 0 2.5rem; }
-    .hero-search { flex-direction: column; }
     .footer-inner { flex-direction: column; text-align: center; }
     .footer-links { justify-content: center; }
     .agents-code { display: none; }
