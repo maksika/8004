@@ -52,21 +52,21 @@
     font-size: 0.8rem;
     font-weight: 600;
     transition: all 0.2s;
-    border: 2px solid var(--color-border);
-    background: var(--color-bg-2);
-    color: var(--color-text-muted);
+    border: 2px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-foreground);
   }
 
   .active .step-circle {
-    border-color: var(--color-accent);
-    background: var(--color-accent-dim);
-    color: var(--color-accent);
+    border-color: var(--brand-offset-blue);
+    background: color-mix(in srgb, var(--brand-offset-blue) 15%, transparent);
+    color: var(--brand-offset-blue);
   }
 
   .done .step-circle {
-    border-color: var(--color-success);
-    background: var(--color-success-dim);
-    color: var(--color-success);
+    border-color: var(--brand-offset-green);
+    background: color-mix(in srgb, var(--brand-offset-green) 15%, transparent);
+    color: var(--brand-offset-green);
   }
 
   .step-label {
@@ -74,20 +74,20 @@
     font-family: var(--font-heading);
     font-weight: 600;
     white-space: nowrap;
-    color: var(--color-text-faint);
+    color: var(--muted-foreground);
   }
 
-  .active .step-label { color: var(--color-accent); }
-  .done .step-label { color: var(--color-success); }
+  .active .step-label { color: var(--brand-offset-blue); }
+  .done .step-label { color: var(--brand-offset-green); }
 
   .step-line {
     flex: 1;
     min-width: 2rem;
     height: 2px;
-    background: var(--color-border);
+    background: var(--border);
     margin: 0 0.25rem;
     margin-bottom: 1.4rem;
     transition: background 0.2s;
   }
-  .step-line.done { background: var(--color-success); }
+  .step-line.done { background: var(--brand-offset-green); }
 </style>

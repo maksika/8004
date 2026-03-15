@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { onMount } from 'svelte';
   export let data: PageData;
 
   const { agent, chain, id } = data;
@@ -44,6 +45,12 @@
   const ogDesc = meta.description ? meta.description.slice(0, 160) : `Verified AI agent on ${chainLabel}`;
 
   let badgeTooltipOpen = false;
+
+  onMount(async () => {
+    const gsap = (await import('gsap')).default;
+    const { ENTRANCE } = await import('$lib/animations.js');
+    gsap.fromTo('.agent-header', ENTRANCE.fadeIn.from, { ...ENTRANCE.fadeIn.to, delay: 0.1 });
+  });
 </script>
 
 <svelte:head>
@@ -81,9 +88,9 @@
     <div class="container nav-inner">
       <a href="/" class="nav-logo">
         <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="6" fill="#3b82f6" opacity="0.15"/>
-          <path d="M14 4L22 9V19L14 24L6 19V9L14 4Z" stroke="#3b82f6" stroke-width="1.5" fill="none"/>
-          <circle cx="14" cy="14" r="3" fill="#3b82f6"/>
+          <rect width="28" height="28" rx="6" fill="var(--brand-offset-blue)" opacity="0.15"/>
+          <path d="M14 4L22 9V19L14 24L6 19V9L14 4Z" stroke="var(--brand-offset-blue)" stroke-width="1.5" fill="none"/>
+          <circle cx="14" cy="14" r="3" fill="var(--brand-offset-blue)"/>
         </svg>
         <span class="nav-wordmark">wayMint</span>
       </a>
@@ -282,9 +289,9 @@
   .page { display: flex; flex-direction: column; min-height: 100vh; }
 
   /* Nav */
-  .nav { border-bottom: 1px solid var(--color-border); background: rgba(10,10,10,0.9); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
+  .nav { border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
   .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-  .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--color-text); }
+  .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--foreground); }
   .nav-wordmark { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; }
 
   /* Layout */
@@ -298,36 +305,33 @@
     align-items: flex-start;
     margin-bottom: 2rem;
     padding-bottom: 2rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--border);
     position: relative;
   }
 
   .agent-avatar-wrap { flex-shrink: 0; }
-  .agent-avatar { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; border: 1px solid var(--color-border); }
+  .agent-avatar { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; border: 1px solid var(--border); }
   .agent-avatar-fallback {
     width: 72px; height: 72px; border-radius: 12px;
-    background: var(--color-accent-dim);
-    border: 1px solid rgba(59,130,246,0.3);
+    background: color-mix(in srgb, var(--brand-offset-blue) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand-offset-blue) 30%, transparent);
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-heading); font-weight: 700; font-size: 1.5rem;
-    color: var(--color-accent);
+    color: var(--brand-offset-blue);
   }
 
   .agent-meta { flex: 1; min-width: 0; }
   .agent-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
   .agent-name { font-size: 1.75rem; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
-  .agent-description { color: var(--color-text-muted); font-size: 0.9rem; line-height: 1.5; }
+  .agent-description { color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.5; }
 
   /* Verified badge (interactive) */
   .verified-badge {
     cursor: pointer;
-    background: var(--color-success-dim);
-    color: var(--color-success);
-    border: 1px solid rgba(34,197,94,0.4);
-    box-shadow: 0 0 8px var(--color-success-dim);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--brand-offset-green) 25%, transparent);
     transition: box-shadow 0.2s;
   }
-  .verified-badge:hover { box-shadow: 0 0 16px var(--color-success-dim); }
+  .verified-badge:hover { box-shadow: 0 0 16px color-mix(in srgb, var(--brand-offset-green) 35%, transparent); }
 
   /* Tooltip */
   .verification-tooltip {
@@ -336,50 +340,50 @@
     left: 0;
     right: 0;
     z-index: 50;
-    border-color: rgba(34,197,94,0.3);
+    outline-color: color-mix(in srgb, var(--brand-offset-green) 30%, transparent);
     animation: fadeIn 0.15s ease;
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-  .verification-tooltip h3 { color: var(--color-success); margin-bottom: 0.5rem; font-size: 0.95rem; }
-  .verification-tooltip p { font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.4rem; }
-  .expiry-note { color: var(--color-warning) !important; }
-  .tooltip-close { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 1rem; }
+  .verification-tooltip h3 { color: var(--brand-offset-green); margin-bottom: 0.5rem; font-size: 0.95rem; }
+  .verification-tooltip p { font-size: 0.85rem; color: var(--muted-foreground); margin-bottom: 0.4rem; }
+  .expiry-note { color: var(--brand-offset-yellow) !important; }
+  .tooltip-close { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; color: var(--muted-foreground); cursor: pointer; font-size: 1rem; }
 
   /* Body */
   .cert-body { display: flex; flex-direction: column; gap: 1rem; }
-  .section-heading { font-size: 0.8rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted); margin-bottom: 1rem; }
+  .section-heading { font-size: 0.8rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-foreground); margin-bottom: 1rem; }
 
   /* Details */
   .detail-list { display: flex; flex-direction: column; gap: 0; }
-  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--color-border); font-size: 0.875rem; gap: 1rem; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; gap: 1rem; }
   .detail-row:last-child { border-bottom: none; }
-  .detail-row dt { color: var(--color-text-muted); flex-shrink: 0; }
+  .detail-row dt { color: var(--muted-foreground); flex-shrink: 0; }
   .detail-row dd { text-align: right; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
-  .addr-link { color: var(--color-text); font-size: 0.85rem; }
-  .addr-link:hover { color: var(--color-accent); }
-  .ext-link { color: var(--color-accent); font-size: 0.8rem; }
-  .ext-link-full { color: var(--color-accent); font-size: 0.85rem; }
+  .addr-link { color: var(--foreground); font-size: 0.85rem; }
+  .addr-link:hover { color: var(--brand-offset-blue); }
+  .ext-link { font-size: 0.8rem; }
+  .ext-link-full { font-size: 0.85rem; }
   .small { font-size: 0.75rem; }
-  .expiry-inline { font-size: 0.75rem; color: var(--color-text-faint); }
+  .expiry-inline { font-size: 0.75rem; color: var(--muted-foreground); }
 
   /* Endpoints */
   .endpoints-list { display: flex; flex-direction: column; gap: 0.75rem; }
-  .endpoint-card { background: var(--color-bg-3); border-radius: 8px; padding: 0.75rem 1rem; }
+  .endpoint-card { background: var(--muted); border-radius: 8px; padding: 0.75rem 1rem; }
   .endpoint-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
   .endpoint-protocol { font-size: 0.7rem; }
-  .endpoint-version { font-size: 0.75rem; color: var(--color-text-faint); font-family: var(--font-mono); }
-  .endpoint-url { font-size: 0.8rem; color: var(--color-accent); word-break: break-all; }
+  .endpoint-version { font-size: 0.75rem; color: var(--muted-foreground); font-family: var(--font-mono); }
+  .endpoint-url { font-size: 0.8rem; word-break: break-all; }
 
   /* Trust */
   .trust-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
-  .trust-badge { display: inline-flex; align-items: center; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--color-bg-3); color: var(--color-text-muted); border: 1px solid var(--color-border); }
+  .trust-badge { display: inline-flex; align-items: center; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--border); }
   .trust-badge.upcoming { opacity: 0.4; font-style: italic; }
-  .trust-note { font-size: 0.8rem; color: var(--color-text-faint); }
+  .trust-note { font-size: 0.8rem; color: var(--muted-foreground); }
 
   /* Footer */
   .back-row { display: flex; justify-content: space-between; margin-top: 2rem; font-size: 0.875rem; }
-  .muted-link { color: var(--color-text-muted); }
-  .muted-link:hover { color: var(--color-text); }
-  .footer-mini { border-top: 1px solid var(--color-border); padding: 1rem 0; }
-  .footer-mini-inner { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--color-text-faint); }
+  .muted-link { color: var(--muted-foreground); }
+  .muted-link:hover { color: var(--foreground); }
+  .footer-mini { border-top: 1px solid var(--border); padding: 1rem 0; }
+  .footer-mini-inner { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted-foreground); }
 </style>

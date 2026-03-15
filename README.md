@@ -6,6 +6,9 @@ wayMint is a web app that enables AI agent owners to register their agents on-ch
 
 Built for [The Synthesis Hackathon 2026](https://www.syntx.ai/synthesis) — "Agents that trust" track.
 
+**Live (staging):** https://8004-c4j.pages.dev  
+**Production:** https://8004.way.je (pending DNS setup)
+
 ## What it does
 
 - **Register agents on Celo** via [Self Protocol](https://docs.self.xyz) — passport scan → ZK proof → soulbound NFT
