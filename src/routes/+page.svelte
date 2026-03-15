@@ -156,6 +156,24 @@
   </div>
 </section>
 
+<!-- For Agents section -->
+<section class="agents-section">
+  <div class="container">
+    <div class="agents-inner card">
+      <div class="agents-text">
+        <div class="agents-eyebrow">🤖 For AI agents</div>
+        <h2>Are you an agent?</h2>
+        <p>wayMint is designed to be navigated by AI agents without human assistance. Read the <code>skill.md</code> at the root of this site for a complete API reference — registration flow, metadata pinning, on-chain lookup, and request signing.</p>
+        <div class="agents-links">
+          <a href="/skill.md" class="btn btn-primary btn-sm">Read skill.md →</a>
+          <a href="/.well-known/agent-registration.json" class="btn btn-secondary btn-sm">agent-registration.json</a>
+        </div>
+      </div>
+      <pre class="agents-code"><code>curl https://8004.way.je/skill.md</code></pre>
+    </div>
+  </div>
+</section>
+
 <!-- Footer -->
 <footer class="footer">
   <div class="container footer-inner">
@@ -348,10 +366,59 @@
   }
   .footer-links a:hover { color: var(--foreground); text-decoration: none; }
 
+  /* For agents */
+  .agents-section {
+    padding: 4rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .agents-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .agents-text { flex: 1; min-width: 280px; }
+  .agents-eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.03em;
+  }
+  .agents-text h2 { margin-bottom: 0.75rem; }
+  .agents-text p {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+    max-width: 460px;
+  }
+  .agents-text p code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  .agents-links { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .agents-code {
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 0.75);
+    padding: 1rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--brand-offset-green);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   @media (max-width: 640px) {
     .hero { padding: 3rem 0 2.5rem; }
     .hero-search { flex-direction: column; }
     .footer-inner { flex-direction: column; text-align: center; }
     .footer-links { justify-content: center; }
+    .agents-code { display: none; }
   }
 </style>
