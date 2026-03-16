@@ -8,6 +8,7 @@
   }
 
   let dropdownOpen = false;
+  let copied = false;
 
   // Close on outside click — use bubble (not capture) so stopPropagation on the
   // pill/dropdown prevents this from firing when clicking inside them
@@ -34,8 +35,9 @@
     e.stopPropagation();
     if ($walletAddress) {
       await navigator.clipboard.writeText($walletAddress);
+      copied = true;
+      setTimeout(() => { copied = false; }, 2000);
     }
-    dropdownOpen = false;
   }
 
   function handleDisconnect(e: MouseEvent) {
@@ -74,9 +76,14 @@
           My Profile
         </button>
         <div class="dropdown-divider"></div>
-        <button class="dropdown-item" on:click={copyAddress}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy address
+        <button class="dropdown-item" class:copied on:click={copyAddress}>
+          {#if copied}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Copied!
+          {:else}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy address
+          {/if}
         </button>
         <button class="dropdown-item disconnect" on:click={handleDisconnect}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -168,6 +175,7 @@
     transition: background 100ms;
   }
   .dropdown-item:hover { background: color-mix(in srgb, var(--foreground) 6%, transparent); }
+  .dropdown-item.copied { color: var(--brand-offset-green); }
   .dropdown-item.disconnect { color: var(--destructive); }
   .dropdown-item.disconnect:hover { background: color-mix(in srgb, var(--destructive) 10%, transparent); }
 </style>
