@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import WalletButton from '$lib/components/WalletButton.svelte';
 
   onMount(async () => {
     const gsap = (await import('gsap')).default;
@@ -32,7 +33,10 @@
       </svg>
       <span class="nav-wordmark">wayMint</span>
     </a>
-    <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+    <div class="nav-actions">
+      <WalletButton />
+      <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+    </div>
   </div>
 </nav>
 
@@ -183,6 +187,11 @@
     align-items: center;
     justify-content: space-between;
     height: 60px;
+  }
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   .nav-brand {
     display: flex;

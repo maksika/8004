@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import QRDisplay from '$lib/components/QRDisplay.svelte';
+  import WalletButton from '$lib/components/WalletButton.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
   import { pinToIPFS } from '$lib/ipfs';
 
@@ -385,7 +386,10 @@
         </svg>
         <span class="nav-wordmark">wayMint</span>
       </a>
-      <span class="nav-step-label">Register Agent</span>
+      <div class="nav-actions">
+        <WalletButton />
+        <span class="nav-step-label">Register Agent</span>
+      </div>
     </div>
   </nav>
 
@@ -757,6 +761,7 @@
     backdrop-filter: blur(12px);
   }
   .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
   .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--foreground); }
   .nav-wordmark { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; }
   .nav-step-label { font-size: 0.85rem; color: var(--muted-foreground); font-family: var(--font-heading); }

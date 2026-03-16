@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import WalletButton from '$lib/components/WalletButton.svelte';
   export let data: PageData;
 
   const { address, agents } = data;
@@ -31,7 +32,10 @@
         </svg>
         <span class="nav-wordmark">wayMint</span>
       </a>
-      <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+      <div class="nav-actions">
+        <WalletButton />
+        <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+      </div>
     </div>
   </nav>
 
@@ -103,6 +107,7 @@
   .page { display: flex; flex-direction: column; min-height: 100vh; }
   .nav { border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
   .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
   .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--foreground); }
   .nav-wordmark { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; }
 
