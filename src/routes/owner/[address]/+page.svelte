@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import WalletButton from '$lib/components/WalletButton.svelte';
   export let data: PageData;
 
   const { address, agents } = data;
@@ -20,26 +19,7 @@
   <meta name="description" content="AI agents registered by {address} on ERC-8004." />
 </svelte:head>
 
-<div class="page">
-
-  <nav class="nav">
-    <div class="container nav-inner">
-      <a href="/" class="nav-logo">
-        <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="6" fill="var(--brand-offset-blue)" opacity="0.15"/>
-          <path d="M14 4L22 9V19L14 24L6 19V9L14 4Z" stroke="var(--brand-offset-blue)" stroke-width="1.5" fill="none"/>
-          <circle cx="14" cy="14" r="3" fill="var(--brand-offset-blue)"/>
-        </svg>
-        <span class="nav-wordmark">wayMint</span>
-      </a>
-      <div class="nav-actions">
-        <WalletButton />
-        <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="main">
+<main class="main">
     <div class="container owner-layout">
 
       <header class="owner-header">
@@ -95,22 +75,7 @@
     </div>
   </main>
 
-  <footer class="footer-mini">
-    <div class="container footer-mini-inner">
-      <span>wayMint by Lineage Labs</span>
-      <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener">ERC-8004 ↗</a>
-    </div>
-  </footer>
-</div>
-
 <style>
-  .page { display: flex; flex-direction: column; min-height: 100vh; }
-  .nav { border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
-  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-  .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
-  .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--foreground); }
-  .nav-wordmark { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; }
-
   .main { flex: 1; padding: 3rem 0 4rem; }
   .owner-layout { max-width: 860px; }
 
@@ -138,6 +103,4 @@
   .back-row { display: flex; justify-content: space-between; margin-top: 2rem; font-size: 0.875rem; }
   .muted-link { color: var(--muted-foreground); }
   .muted-link:hover { color: var(--foreground); }
-  .footer-mini { border-top: 1px solid var(--border); padding: 1rem 0; }
-  .footer-mini-inner { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted-foreground); }
 </style>

@@ -2,7 +2,6 @@
   import { tick } from 'svelte';
   import Stepper from '$lib/components/Stepper.svelte';
   import QRDisplay from '$lib/components/QRDisplay.svelte';
-  import WalletButton from '$lib/components/WalletButton.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
   import { pinToIPFS } from '$lib/ipfs';
 
@@ -375,25 +374,7 @@
   <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="page">
-  <nav class="nav">
-    <div class="container nav-inner">
-      <a href="/" class="nav-logo">
-        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="6" fill="var(--brand-offset-blue)" opacity="0.15"/>
-          <path d="M14 4L22 9V19L14 24L6 19V9L14 4Z" stroke="var(--brand-offset-blue)" stroke-width="1.5" fill="none"/>
-          <circle cx="14" cy="14" r="3" fill="var(--brand-offset-blue)"/>
-        </svg>
-        <span class="nav-wordmark">wayMint</span>
-      </a>
-      <div class="nav-actions">
-        <WalletButton />
-        <span class="nav-step-label">Register Agent</span>
-      </div>
-    </div>
-  </nav>
-
-  <main class="main">
+<main class="main">
     <div class="wizard-wrap">
       <Stepper steps={STEPS} current={step} />
 
@@ -749,23 +730,8 @@
       {/if}
     </div>
   </main>
-</div>
 
 <style>
-  .page { display: flex; flex-direction: column; min-height: 100vh; }
-
-  .nav {
-    position: sticky; top: 0; z-index: 100;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--background) 90%, transparent);
-    backdrop-filter: blur(12px);
-  }
-  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-  .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
-  .nav-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--foreground); }
-  .nav-wordmark { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; }
-  .nav-step-label { font-size: 0.85rem; color: var(--muted-foreground); font-family: var(--font-heading); }
-
   .main { flex: 1; padding: 2.5rem 0 4rem; }
   .wizard-wrap { max-width: 680px; margin: 0 auto; padding: 0 1.5rem; }
 

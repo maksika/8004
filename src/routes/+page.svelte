@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import WalletButton from '$lib/components/WalletButton.svelte';
-
   onMount(async () => {
     const gsap = (await import('gsap')).default;
     const { ENTRANCE } = await import('$lib/animations.js');
@@ -22,23 +20,6 @@
   <title>wayMint — Verifiable AI Agent Identity</title>
   <meta name="description" content="Register your AI agent on-chain with ERC-8004. Proof-of-human verified, permanent, and shareable." />
 </svelte:head>
-
-<!-- Nav -->
-<nav class="nav">
-  <div class="container nav-inner">
-    <a href="/" class="nav-brand">
-      <svg viewBox="0 0 100 100" width="28" height="28">
-        <polygon points="50,15 82,33 82,67 50,85 18,67 18,33" stroke="var(--brand-offset-blue)" stroke-width="5" fill="none"/>
-        <circle cx="50" cy="50" r="8" fill="var(--brand-offset-blue)"/>
-      </svg>
-      <span class="nav-wordmark">wayMint</span>
-    </a>
-    <div class="nav-actions">
-      <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
-      <WalletButton />
-    </div>
-  </div>
-</nav>
 
 <!-- Hero -->
 <section class="hero">
@@ -152,62 +133,7 @@
   </div>
 </section>
 
-<!-- Footer -->
-<footer class="footer">
-  <div class="container footer-inner">
-    <div class="footer-brand">
-      <svg viewBox="0 0 100 100" width="20" height="20">
-        <polygon points="50,15 82,33 82,67 50,85 18,67 18,33" stroke="var(--brand-offset-blue)" stroke-width="5" fill="none"/>
-        <circle cx="50" cy="50" r="8" fill="var(--brand-offset-blue)"/>
-      </svg>
-      <span>wayMint</span>
-    </div>
-    <div class="footer-links">
-      <a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener">ERC-8004 Spec</a>
-      <a href="https://docs.self.xyz" target="_blank" rel="noopener">Self Docs</a>
-      <a href="https://www.coinbase.com/onchain-verify" target="_blank" rel="noopener">Coinbase Verifications</a>
-      <a href="https://thesynthesis.ai" target="_blank" rel="noopener">The Synthesis</a>
-      <a href="https://8004agents.ai" target="_blank" rel="noopener">8004agents.ai</a>
-    </div>
-  </div>
-</footer>
-
 <style>
-  /* Nav */
-  .nav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: color-mix(in srgb, var(--background) 85%, transparent);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 60px;
-  }
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .nav-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    color: var(--foreground);
-  }
-  .nav-brand:hover { text-decoration: none; }
-  .nav-wordmark {
-    font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 1.15rem;
-    letter-spacing: -0.02em;
-  }
-
   /* Hero */
   .hero {
     padding: 5rem 0 4rem;
@@ -304,39 +230,6 @@
   }
   .feature-icon { margin-bottom: 0.75rem; }
 
-  /* Footer */
-  .footer {
-    border-top: 1px solid var(--border);
-    padding: 2rem 0;
-  }
-  .footer-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-  .footer-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--muted-foreground);
-  }
-  .footer-links {
-    display: flex;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-  }
-  .footer-links a {
-    font-size: 0.85rem;
-    color: var(--muted-foreground);
-    transition: color 150ms ease;
-  }
-  .footer-links a:hover { color: var(--foreground); text-decoration: none; }
-
   /* For agents */
   .agents-section {
     padding: 4rem 0;
@@ -387,8 +280,6 @@
 
   @media (max-width: 640px) {
     .hero { padding: 3rem 0 2.5rem; }
-    .footer-inner { flex-direction: column; text-align: center; }
-    .footer-links { justify-content: center; }
     .agents-code { display: none; }
   }
 </style>
