@@ -198,9 +198,39 @@
                 clearTimeout(timeout);
                 qrStatus = 'done';
                 await tick();
-                // Extract agentId from the on-chain data in the response
-                mintedAgentId = data.agentId ?? data.tokenId ?? null;
-                mintedTxHash = data.txHash ?? data.transactionHash ?? '';
+
+                // The WS event doesn't include agentId — query the chain for the
+                // most recent Transfer (mint) event to the owner's wallet
+                try {
+                  const { createPublicClient, http, parseAbi } = await import('viem');
+                  const { celo } = await import('$lib/chains');
+                  const client = createPublicClient({ chain: celo, transport: http() });
+                  const REGISTRY = '0xaC3DF9ABf80d0F5c020C06B04Cced27763355944' as `0x${string}`;
+                  const transferAbi = parseAbi([
+                    'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+                  ]);
+                  // Fetch last ~2000 blocks (Celo ~5s blocks ≈ ~3h window, plenty)
+                  const latestBlock = await client.getBlockNumber();
+                  const logs = await client.getLogs({
+                    address: REGISTRY,
+                    event: transferAbi[0],
+                    args: {
+                      from: '0x0000000000000000000000000000000000000000',
+                      to: ($walletAddress as `0x${string}`),
+                    },
+                    fromBlock: latestBlock - 2000n > 0n ? latestBlock - 2000n : 0n,
+                    toBlock: 'latest',
+                  });
+                  if (logs.length > 0) {
+                    // Most recent mint is the last log
+                    const lastLog = logs[logs.length - 1];
+                    mintedAgentId = Number(lastLog.args.tokenId);
+                    mintedTxHash = lastLog.transactionHash ?? '';
+                  }
+                } catch (chainErr) {
+                  console.warn('[Celo] Could not fetch agentId from chain:', chainErr);
+                }
+
                 socket.disconnect();
                 resolve();
                 break;
