@@ -110,7 +110,7 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
         ],
       },
       args: { from: '0x0000000000000000000000000000000000000000', tokenId: BigInt(agentId) },
-      fromBlock: 'earliest',
+      fromBlock: chain === 'celo' ? 60900000n : 25000000n,
       toBlock: 'latest',
     });
     if (logs.length > 0 && logs[0].blockNumber) {
