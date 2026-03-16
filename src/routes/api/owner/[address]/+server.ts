@@ -33,6 +33,14 @@ async function getAgentsForChain(chain: 'celo' | 'base', address: `0x${string}`)
     ],
   };
 
+  // Use known deployment blocks to avoid scanning from genesis (times out on Celo)
+  // Celo SelfAgentRegistry deployed ~Feb 2026, Base registry similar era
+  const DEPLOY_BLOCK: Record<string, bigint> = {
+    celo: 60900000n,  // ~Feb 2026 on Celo mainnet (~61M blocks total as of Mar 2026)
+    base: 25000000n,  // ~Feb 2026 on Base mainnet
+  };
+  const fromBlock = DEPLOY_BLOCK[chain] ?? 0n;
+
   // Find Transfer events TO this address (mints + transfers)
   let transferLogs: any[] = [];
   try {
@@ -40,7 +48,7 @@ async function getAgentsForChain(chain: 'celo' | 'base', address: `0x${string}`)
       address: registry,
       event: transferEvent,
       args: { to: address },
-      fromBlock: 'earliest',
+      fromBlock,
       toBlock: 'latest',
     });
   } catch {
@@ -54,7 +62,7 @@ async function getAgentsForChain(chain: 'celo' | 'base', address: `0x${string}`)
       address: registry,
       event: transferEvent,
       args: { from: address },
-      fromBlock: 'earliest',
+      fromBlock,
       toBlock: 'latest',
     });
   } catch {}
