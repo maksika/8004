@@ -22,13 +22,18 @@ const CELO_EXTRA_ABI = parseAbi([
 ]);
 
 async function resolveIPFS(uri: string): Promise<any> {
+  if (!uri || uri.trim() === '') return null;
   let url = uri;
   if (uri.startsWith('ipfs://')) {
     url = `https://ipfs.io/ipfs/${uri.slice(7)}`;
   }
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return null;
-  return res.json().catch(() => null);
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    return res.json().catch(() => null);
+  } catch {
+    return null;
+  }
 }
 
 export const GET: RequestHandler = async ({ params, setHeaders }) => {
