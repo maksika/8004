@@ -1,7 +1,9 @@
 import { writable, derived } from 'svelte/store';
 import { createPublicClient, http } from 'viem';
 import { celo, base } from './chains';
-import { PUBLIC_WC_PROJECT_ID } from '$env/static/public';
+
+// Public WalletConnect / Reown project ID — safe to expose in client code
+const WC_PROJECT_ID = '97183c5cdb01ba7f9b8ffeeb321cd296';
 
 export const walletAddress = writable<`0x${string}` | null>(null);
 export const chainId = writable<number | null>(null);
@@ -74,7 +76,7 @@ async function connectWalletConnect(): Promise<`0x${string}`> {
   );
 
   const provider = await EthereumProvider.init({
-    projectId: PUBLIC_WC_PROJECT_ID,
+    projectId: WC_PROJECT_ID,
     chains: [1], // ETH mainnet required by WC; we switch after connect
     optionalChains: [42220, 8453], // Celo, Base
     showQrModal: true, // renders built-in QR modal
