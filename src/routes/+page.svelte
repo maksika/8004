@@ -34,8 +34,8 @@
       <span class="nav-wordmark">wayMint</span>
     </a>
     <div class="nav-actions">
-      <WalletButton />
       <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+      <WalletButton />
     </div>
   </div>
 </nav>

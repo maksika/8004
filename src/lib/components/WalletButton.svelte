@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { connectWallet, disconnectWallet, walletAddress, isConnecting } from '$lib/wallet';
+  import { goto } from '$app/navigation';
+  import { connectWallet, walletAddress, isConnecting } from '$lib/wallet';
 
   function truncate(addr: string) {
     return addr.slice(0, 6) + '…' + addr.slice(-4);
@@ -11,12 +12,23 @@
   function close() { dropdownOpen = false; }
 
   function handleDisconnect() {
-    disconnectWallet();
+    // MetaMask doesn't support programmatic revoke, but we clear our state
+    // and remove event listeners so the app treats the user as disconnected
+    walletAddress.set(null);
+    if (typeof window !== 'undefined' && window.ethereum?.removeAllListeners) {
+      window.ethereum.removeAllListeners('accountsChanged');
+      window.ethereum.removeAllListeners('chainChanged');
+    }
     dropdownOpen = false;
   }
 
   function copyAddress() {
     if ($walletAddress) navigator.clipboard.writeText($walletAddress);
+    dropdownOpen = false;
+  }
+
+  function goToProfile() {
+    if ($walletAddress) goto(`/owner/${$walletAddress}`);
     dropdownOpen = false;
   }
 </script>
@@ -25,7 +37,6 @@
 
 {#if $walletAddress}
   <div class="wallet-connected">
-    <a href="/owner/{$walletAddress}" class="btn btn-secondary btn-sm">My Profile</a>
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="wallet-pill" on:click|stopPropagation={toggle}>
@@ -39,6 +50,11 @@
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <div class="dropdown" on:click|stopPropagation>
+        <button class="dropdown-item" on:click={goToProfile}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          My Profile
+        </button>
+        <div class="dropdown-divider"></div>
         <button class="dropdown-item" on:click={copyAddress}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copy address
@@ -52,11 +68,7 @@
   </div>
 {:else}
   <button class="btn btn-secondary btn-sm" on:click={connectWallet} disabled={$isConnecting}>
-    {#if $isConnecting}
-      Connecting…
-    {:else}
-      Connect Wallet
-    {/if}
+    {$isConnecting ? 'Connecting…' : 'Connect Wallet'}
   </button>
 {/if}
 
@@ -64,7 +76,6 @@
   .wallet-connected {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
     position: relative;
   }
 
@@ -102,7 +113,7 @@
     position: absolute;
     top: calc(100% + 0.4rem);
     right: 0;
-    min-width: 160px;
+    min-width: 170px;
     background: var(--popover);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) * 0.8);
@@ -115,6 +126,12 @@
   @keyframes dropIn {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: none; }
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0;
   }
 
   .dropdown-item {
