@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { connectWallet, walletAddress, isConnecting } from '$lib/wallet';
-  import { onDestroy } from 'svelte';
+  import { connectWallet, disconnectWallet, walletAddress, isConnecting } from '$lib/wallet';
 
   function truncate(addr: string) {
     return addr.slice(0, 6) + '…' + addr.slice(-4);
@@ -42,13 +41,7 @@
 
   function handleDisconnect(e: MouseEvent) {
     e.stopPropagation();
-    walletAddress.set(null);
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        window.ethereum.removeAllListeners?.('accountsChanged');
-        window.ethereum.removeAllListeners?.('chainChanged');
-      } catch {}
-    }
+    disconnectWallet();
     dropdownOpen = false;
   }
 </script>
