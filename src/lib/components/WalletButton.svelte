@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { connectWallet, walletAddress, isConnecting } from '$lib/wallet';
+  import { onDestroy } from 'svelte';
 
   function truncate(addr: string) {
     return addr.slice(0, 6) + '…' + addr.slice(-4);
@@ -8,48 +9,66 @@
 
   let dropdownOpen = false;
 
-  function toggle() { dropdownOpen = !dropdownOpen; }
-  function close() { dropdownOpen = false; }
+  // Close on outside click — use bubble (not capture) so stopPropagation on the
+  // pill/dropdown prevents this from firing when clicking inside them
+  function handleOutsideClick() {
+    dropdownOpen = false;
+  }
 
-  function handleDisconnect() {
-    // MetaMask doesn't support programmatic revoke, but we clear our state
-    // and remove event listeners so the app treats the user as disconnected
-    walletAddress.set(null);
-    if (typeof window !== 'undefined' && window.ethereum?.removeAllListeners) {
-      window.ethereum.removeAllListeners('accountsChanged');
-      window.ethereum.removeAllListeners('chainChanged');
+  function toggleDropdown(e: MouseEvent) {
+    e.stopPropagation(); // prevent handleOutsideClick
+    dropdownOpen = !dropdownOpen;
+  }
+
+  function stopProp(e: MouseEvent) {
+    e.stopPropagation(); // clicks inside dropdown stay inside
+  }
+
+  async function goToProfile(e: MouseEvent) {
+    e.stopPropagation();
+    dropdownOpen = false;
+    if ($walletAddress) await goto(`/owner/${$walletAddress}`);
+  }
+
+  async function copyAddress(e: MouseEvent) {
+    e.stopPropagation();
+    if ($walletAddress) {
+      await navigator.clipboard.writeText($walletAddress);
     }
     dropdownOpen = false;
   }
 
-  function copyAddress() {
-    if ($walletAddress) navigator.clipboard.writeText($walletAddress);
-    dropdownOpen = false;
-  }
-
-  function goToProfile() {
-    if ($walletAddress) goto(`/owner/${$walletAddress}`);
+  function handleDisconnect(e: MouseEvent) {
+    e.stopPropagation();
+    walletAddress.set(null);
+    if (typeof window !== 'undefined' && window.ethereum) {
+      try {
+        window.ethereum.removeAllListeners?.('accountsChanged');
+        window.ethereum.removeAllListeners?.('chainChanged');
+      } catch {}
+    }
     dropdownOpen = false;
   }
 </script>
 
-<svelte:window on:click|capture={close} />
+<svelte:window on:click={handleOutsideClick} />
 
 {#if $walletAddress}
   <div class="wallet-connected">
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="wallet-pill" on:click|stopPropagation={toggle}>
+    <div class="wallet-pill" on:click={toggleDropdown}>
       <span class="wallet-dot"></span>
       <span class="wallet-addr">{truncate($walletAddress)}</span>
       <svg class="chevron" class:open={dropdownOpen} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="6 9 12 15 18 9"/>
       </svg>
     </div>
+
     {#if dropdownOpen}
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
-      <div class="dropdown" on:click|stopPropagation>
+      <div class="dropdown" on:click={stopProp}>
         <button class="dropdown-item" on:click={goToProfile}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
           My Profile
@@ -97,8 +116,7 @@
   .wallet-pill:hover { border-color: color-mix(in srgb, var(--foreground) 30%, transparent); }
 
   .wallet-dot {
-    width: 7px;
-    height: 7px;
+    width: 7px; height: 7px;
     border-radius: 50%;
     background: var(--brand-offset-green);
     flex-shrink: 0;
@@ -125,7 +143,7 @@
 
   @keyframes dropIn {
     from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: none; }
+    to   { opacity: 1; transform: none; }
   }
 
   .dropdown-divider {
