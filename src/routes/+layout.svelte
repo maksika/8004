@@ -21,7 +21,7 @@
         <span class="header-wordmark">wayMint</span>
       </a>
       <nav class="header-nav">
-        <a href="/register" class="btn btn-primary btn-sm">Register Agent</a>
+        <a href="/register" class="btn btn-primary btn-sm hide-mobile">Register Agent</a>
         <WalletButton />
       </nav>
     </div>
@@ -168,5 +168,6 @@
   @media (max-width: 600px) {
     .footer-inner { flex-direction: column; }
     .footer-links { gap: 0.75rem; }
+    .hide-mobile { display: none; }
   }
 </style>
