@@ -5,6 +5,11 @@
 
 <div class="site-shell">
 
+  <div class="beta-banner">
+    <span class="beta-badge">Public Beta</span>
+    wayMint is in early development. Use on mainnet at your own risk — transactions are real and irreversible.
+  </div>
+
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="header-brand">
@@ -49,6 +54,32 @@
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+  }
+
+  /* ── Beta banner ── */
+  .beta-banner {
+    background: color-mix(in srgb, var(--brand-offset-yellow) 12%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--brand-offset-yellow) 30%, transparent);
+    color: var(--brand-offset-yellow);
+    text-align: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-family: var(--font-body);
+    line-height: 1.4;
+  }
+  .beta-badge {
+    display: inline-block;
+    background: var(--brand-offset-yellow);
+    color: var(--background);
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    margin-right: 0.5rem;
+    vertical-align: middle;
   }
 
   /* ── Header ── */
