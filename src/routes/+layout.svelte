@@ -7,7 +7,7 @@
 
   <div class="beta-banner">
     <span class="beta-badge">Public Beta</span>
-    wayMint is in early development. Use on mainnet at your own risk — transactions are real and irreversible.
+    wayMint is in early development. Use on mainnet at your own risk.
   </div>
 
   <header class="site-header">
