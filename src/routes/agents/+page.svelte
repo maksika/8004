@@ -102,7 +102,7 @@
             <div class="agent-card-top">
               <div class="agent-avatar">
                 {#if agent.image}
-                  <img src={agent.image.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${agent.image.slice(7)}` : agent.image}
+                  <img src={agent.image.startsWith('ipfs://') ? 'https://ipfs.io/ipfs/' + agent.image.slice(7) : agent.image}
                     alt={agent.name} class="avatar-img"
                     on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                 {:else}
