@@ -7,3 +7,4 @@ dist/
 .env.*
 !.env.example
 PROMPT_*.md
+.DS_Store
