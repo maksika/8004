@@ -33,6 +33,15 @@
     return name.slice(0, 2).toUpperCase();
   }
 
+  function ipfsUrl(uri: string) {
+    return uri.startsWith('ipfs://') ? 'https://ipfs.io/ipfs/' + uri.slice(7) : uri;
+  }
+
+  function hideOnError(e: Event) {
+    const el = e.currentTarget as HTMLImageElement;
+    el.style.display = 'none';
+  }
+
   onMount(async () => {
     try {
       const res = await fetch('/api/agents');
@@ -102,9 +111,7 @@
             <div class="agent-card-top">
               <div class="agent-avatar">
                 {#if agent.image}
-                  <img src={agent.image.startsWith('ipfs://') ? 'https://ipfs.io/ipfs/' + agent.image.slice(7) : agent.image}
-                    alt={agent.name} class="avatar-img"
-                    on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  <img src={ipfsUrl(agent.image)} alt={agent.name} class="avatar-img" on:error={hideOnError} />
                 {:else}
                   <span class="avatar-initials">{initials(agent.name)}</span>
                 {/if}
