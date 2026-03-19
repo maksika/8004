@@ -55,9 +55,7 @@
       <a href="https://base.org" target="_blank" rel="noopener" class="powered-item" title="Base">
         <img src="/logos/Base_lockup_white.svg" alt="Base" class="powered-wordmark powered-wordmark-base" />
       </a>
-      <a href="https://ethereum.org" target="_blank" rel="noopener" class="powered-item" title="Ethereum">
-        <img src="/logos/eth-logo-landscape-purple.svg" alt="Ethereum" class="powered-wordmark powered-wordmark-eth" />
-      </a>
+
     </div>
   </div>
 </section>
@@ -288,7 +286,6 @@
   .powered-wordmark-self { height: 20px; }
   .powered-wordmark-celo { height: 20px; }
   .powered-wordmark-base { height: 20px; }
-  .powered-wordmark-eth  { height: 22px; }
 
   /* For agents */
   .agents-section {
