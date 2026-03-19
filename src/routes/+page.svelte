@@ -47,20 +47,16 @@
     <p class="powered-label">Powered by</p>
     <div class="powered-logos">
       <a href="https://self.xyz" target="_blank" rel="noopener" class="powered-item" title="Self Protocol">
-        <img src="/logos/self.svg" alt="Self" class="powered-logo" />
-        <span>Self</span>
+        <img src="/logos/self-logo-white.svg" alt="Self" class="powered-wordmark powered-wordmark-self" />
       </a>
       <a href="https://celo.org" target="_blank" rel="noopener" class="powered-item" title="Celo">
-        <img src="/logos/celo.svg" alt="Celo" class="powered-logo" />
-        <span>Celo</span>
+        <img src="/logos/Celo_Wordmark_PMS_ProsperityYellow.svg" alt="Celo" class="powered-wordmark powered-wordmark-celo" />
       </a>
       <a href="https://base.org" target="_blank" rel="noopener" class="powered-item" title="Base">
-        <img src="/logos/base.svg" alt="Base" class="powered-logo" />
-        <span>Base</span>
+        <img src="/logos/Base_lockup_white.svg" alt="Base" class="powered-wordmark powered-wordmark-base" />
       </a>
       <a href="https://ethereum.org" target="_blank" rel="noopener" class="powered-item" title="Ethereum">
-        <img src="/logos/ethereum.svg" alt="Ethereum" class="powered-logo" />
-        <span>Ethereum</span>
+        <img src="/logos/eth-logo-landscape-purple.svg" alt="Ethereum" class="powered-wordmark powered-wordmark-eth" />
       </a>
     </div>
   </div>
@@ -267,34 +263,32 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted-foreground);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
   .powered-logos {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2.5rem;
+    gap: 3rem;
     flex-wrap: wrap;
   }
   .powered-item {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.4rem;
-    color: var(--muted-foreground);
     text-decoration: none;
-    font-size: 0.8rem;
-    font-family: var(--font-heading);
-    font-weight: 500;
+    opacity: 0.7;
     transition: opacity 150ms ease;
   }
-  .powered-item:hover { opacity: 0.7; }
-  .powered-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+  .powered-item:hover { opacity: 1; }
+  .powered-wordmark {
+    height: 22px;
+    width: auto;
     object-fit: contain;
   }
+  .powered-wordmark-self { height: 20px; }
+  .powered-wordmark-celo { height: 20px; }
+  .powered-wordmark-base { height: 20px; }
+  .powered-wordmark-eth  { height: 22px; }
 
   /* For agents */
   .agents-section {

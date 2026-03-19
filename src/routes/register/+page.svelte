@@ -387,8 +387,8 @@
           <div class="network-cards">
             <button class="network-card" on:click={() => selectNetwork('celo')}>
               <div class="network-card-logos">
-                <img src="/logos/celo.svg" alt="Celo" class="card-logo" title="Celo" />
-                <img src="/logos/self.svg" alt="Self" class="card-logo" title="Self Protocol" />
+                <img src="/logos/Celo_Wordmark_PMS_ProsperityYellow.svg" alt="Celo" class="card-wordmark card-wordmark-celo" />
+                <img src="/logos/self-logo-white.svg" alt="Self" class="card-wordmark card-wordmark-self" />
               </div>
               <div class="network-badge badge badge-celo">Celo Mainnet</div>
               <h3>Self Protocol</h3>
@@ -405,8 +405,8 @@
 
             <button class="network-card" on:click={() => selectNetwork('base')}>
               <div class="network-card-logos">
-                <img src="/logos/base.svg" alt="Base" class="card-logo" title="Base" />
-                <img src="/logos/coinbase.svg" alt="Coinbase" class="card-logo" title="Coinbase" />
+                <img src="/logos/Base_lockup_white.svg" alt="Base" class="card-wordmark card-wordmark-base" />
+                <img src="/logos/Coinbase_Wordmark_White.svg" alt="Coinbase" class="card-wordmark card-wordmark-coinbase" />
               </div>
               <div class="network-badge badge badge-base">Base Mainnet</div>
               <h3>Coinbase Verifications</h3>
@@ -768,15 +768,16 @@
   .network-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px oklch(0 0 0 / 20%); outline-color: var(--brand-offset-blue); }
   .network-card-logos {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     align-items: center;
-    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
   }
-  .card-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
+  .card-wordmark {
+    height: 18px;
+    width: auto;
     object-fit: contain;
+    opacity: 0.9;
   }
   .network-card h3 { font-size: 1.1rem; }
   .network-card p { font-size: 0.85rem; color: var(--muted-foreground); line-height: 1.5; }
