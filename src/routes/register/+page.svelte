@@ -386,6 +386,10 @@
 
           <div class="network-cards">
             <button class="network-card" on:click={() => selectNetwork('celo')}>
+              <div class="network-card-logos">
+                <img src="/logos/celo.svg" alt="Celo" class="card-logo" title="Celo" />
+                <img src="/logos/self.svg" alt="Self" class="card-logo" title="Self Protocol" />
+              </div>
               <div class="network-badge badge badge-celo">Celo Mainnet</div>
               <h3>Self Protocol</h3>
               <p>Passport scan via the Self app. Zero-knowledge proof on-chain. Soulbound NFT with ZK-attested credentials.</p>
@@ -400,6 +404,10 @@
             </button>
 
             <button class="network-card" on:click={() => selectNetwork('base')}>
+              <div class="network-card-logos">
+                <img src="/logos/base.svg" alt="Base" class="card-logo" title="Base" />
+                <img src="/logos/coinbase.svg" alt="Coinbase" class="card-logo" title="Coinbase" />
+              </div>
               <div class="network-badge badge badge-base">Base Mainnet</div>
               <h3>Coinbase Verifications</h3>
               <p>EAS attestation via Coinbase identity verification. No passport scan needed — just a verified Coinbase account.</p>
@@ -758,6 +766,18 @@
     color: var(--card-foreground);
   }
   .network-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px oklch(0 0 0 / 20%); outline-color: var(--brand-offset-blue); }
+  .network-card-logos {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.25rem;
+  }
+  .card-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: contain;
+  }
   .network-card h3 { font-size: 1.1rem; }
   .network-card p { font-size: 0.85rem; color: var(--muted-foreground); line-height: 1.5; }
   .network-features { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }

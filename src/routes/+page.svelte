@@ -41,6 +41,31 @@
   </div>
 </section>
 
+<!-- Powered by -->
+<section class="powered-section">
+  <div class="container">
+    <p class="powered-label">Powered by</p>
+    <div class="powered-logos">
+      <a href="https://self.xyz" target="_blank" rel="noopener" class="powered-item" title="Self Protocol">
+        <img src="/logos/self.svg" alt="Self" class="powered-logo" />
+        <span>Self</span>
+      </a>
+      <a href="https://celo.org" target="_blank" rel="noopener" class="powered-item" title="Celo">
+        <img src="/logos/celo.svg" alt="Celo" class="powered-logo" />
+        <span>Celo</span>
+      </a>
+      <a href="https://base.org" target="_blank" rel="noopener" class="powered-item" title="Base">
+        <img src="/logos/base.svg" alt="Base" class="powered-logo" />
+        <span>Base</span>
+      </a>
+      <a href="https://ethereum.org" target="_blank" rel="noopener" class="powered-item" title="Ethereum">
+        <img src="/logos/ethereum.svg" alt="Ethereum" class="powered-logo" />
+        <span>Ethereum</span>
+      </a>
+    </div>
+  </div>
+</section>
+
 <!-- For Agents section -->
 <section class="agents-section">
   <div class="container">
@@ -229,6 +254,47 @@
     line-height: 1.6;
   }
   .feature-icon { margin-bottom: 0.75rem; }
+
+  /* Powered by */
+  .powered-section {
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .powered-label {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    margin-bottom: 1.25rem;
+  }
+  .powered-logos {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .powered-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-family: var(--font-heading);
+    font-weight: 500;
+    transition: opacity 150ms ease;
+  }
+  .powered-item:hover { opacity: 0.7; }
+  .powered-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: contain;
+  }
 
   /* For agents */
   .agents-section {
