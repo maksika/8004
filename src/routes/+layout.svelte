@@ -21,6 +21,7 @@
         <span class="header-wordmark">wayMint</span>
       </a>
       <nav class="header-nav">
+        <a href="/agents" class="nav-link hide-mobile">Agents</a>
         <a href="/register" class="btn btn-primary btn-sm hide-mobile">Register Agent</a>
         <WalletButton />
       </nav>
@@ -116,6 +117,20 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+  }
+  .nav-link {
+    font-size: 0.875rem;
+    font-family: var(--font-heading);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius);
+    transition: color 150ms ease, background 150ms ease;
+  }
+  .nav-link:hover {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
   }
 
   /* ── Main ── */

@@ -37,6 +37,7 @@
     </p>
     <div class="hero-ctas hero-cta will-animate">
       <a href="/register" class="btn btn-primary btn-lg">Register Agent &rarr;</a>
+      <a href="/agents" class="btn btn-secondary btn-lg">Browse Agents</a>
     </div>
   </div>
 </section>
