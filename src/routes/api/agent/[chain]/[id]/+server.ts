@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createPublicClient, http, parseAbi } from 'viem';
 import { celo, base } from '$lib/chains';
+import { resolveIdentity } from '$lib/server/resolve-identity';
 
 const REGISTRIES = {
   celo: '0xaC3DF9ABf80d0F5c020C06B04Cced27763355944' as `0x${string}`,
@@ -124,6 +125,14 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
     }
   } catch {}
 
+  // Resolve owner identity (Basename/ENS + Coinbase Verification)
+  let ownerIdentity: any = null;
+  if (chain === 'base') {
+    try {
+      ownerIdentity = await resolveIdentity(owner);
+    } catch {}
+  }
+
   const explorerBase = chain === 'celo' ? 'https://celoscan.io' : 'https://basescan.org';
 
   const result = {
@@ -136,11 +145,12 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
     hasHumanProof,
     isProofFresh,
     proofExpiresAt,
-    hasCoinbaseVerification: chain === 'base',
+    hasCoinbaseVerification: chain === 'base' && ownerIdentity?.coinbaseVerification?.found,
+    ownerIdentity,
     registeredAt,
-    explorerNftUrl: `${explorerBase}/token/${registry}?a=${agentId}`,
-    explorerOwnerUrl: `${explorerBase}/address/${owner}`,
-    ipfsGatewayUrl: agentURI.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${agentURI.slice(7)}` : agentURI,
+    explorerNftUrl: explorerBase + '/token/' + registry + '?a=' + agentId,
+    explorerOwnerUrl: explorerBase + '/address/' + owner,
+    ipfsGatewayUrl: agentURI.startsWith('ipfs://') ? 'https://ipfs.io/ipfs/' + agentURI.slice(7) : agentURI,
   };
 
   setHeaders({ 'Cache-Control': 'public, max-age=300, s-maxage=300' });

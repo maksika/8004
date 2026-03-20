@@ -38,11 +38,27 @@
 
   const expiry = chain === 'celo' ? formatExpiry(agent.proofExpiresAt) : null;
 
-  const avatarUrl = meta.image || null;
-  const initials = (meta.name ?? `A${id}`).slice(0, 2).toUpperCase();
+  // Owner identity (Base only, resolved server-side)
+  const ownerIdentity = agent.ownerIdentity ?? null;
+  const ownerName = ownerIdentity?.name ?? null;
+  const ownerAvatar = ownerIdentity?.profile?.avatar ?? null;
+  const ownerDesc = ownerIdentity?.profile?.description ?? null;
+  const ownerNameProvider = ownerIdentity?.nameProvider ?? null;
+  const hasCoinbaseVerification = ownerIdentity?.coinbaseVerification?.found ?? false;
 
-  const ogTitle = `${meta.name ?? `Agent #${id}`} — wayMint`;
-  const ogDesc = meta.description ? meta.description.slice(0, 160) : `Verified AI agent on ${chainLabel}`;
+  function getOwnerAvatarFallback(addr: string): string {
+    return (addr || '??').slice(2, 4).toUpperCase();
+  }
+
+  function getBasenameExplorerUrl(name: string): string {
+    return 'https://www.base.org/name/' + name.replace('.base.eth', '');
+  }
+
+  const avatarUrl = meta.image || null;
+  const initials = (meta.name ?? 'A' + id).slice(0, 2).toUpperCase();
+
+  const ogTitle = (meta.name ?? 'Agent #' + id) + ' — wayMint';
+  const ogDesc = meta.description ? meta.description.slice(0, 160) : 'Verified AI agent on ' + chainLabel;
 
   let badgeTooltipOpen = false;
 
@@ -173,6 +189,44 @@
             </div>
           </dl>
         </section>
+
+        <!-- Owner Identity (Base) -->
+        {#if chain === 'base' && ownerIdentity}
+          <section class="card cert-section">
+            <h2 class="section-heading">Owner identity</h2>
+            <div class="owner-identity-card">
+              {#if ownerAvatar}
+                <img src={ownerAvatar} alt="Owner avatar" class="owner-avatar" />
+              {:else}
+                <div class="owner-avatar owner-avatar-fallback">{getOwnerAvatarFallback(agent.owner)}</div>
+              {/if}
+              <div class="owner-identity-info">
+                {#if ownerName}
+                  <div class="owner-name">
+                    {#if ownerNameProvider === 'basename'}
+                      <a href={getBasenameExplorerUrl(ownerName)} target="_blank" rel="noopener" class="owner-name-link">{ownerName}</a>
+                    {:else}
+                      <span>{ownerName}</span>
+                    {/if}
+                  </div>
+                {/if}
+                {#if ownerDesc}
+                  <div class="owner-desc">{ownerDesc}</div>
+                {/if}
+                <div class="owner-badges">
+                  {#if ownerName && ownerNameProvider === 'basename'}
+                    <span class="badge badge-basename">Basename Verified</span>
+                  {:else if ownerName}
+                    <span class="badge badge-verified">ENS Verified</span>
+                  {/if}
+                  {#if hasCoinbaseVerification}
+                    <span class="badge badge-coinbase-verified">Coinbase Verified</span>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          </section>
+        {/if}
 
         <!-- Endpoints -->
         {#if services.length > 0}
@@ -348,6 +402,44 @@
   .trust-badge { display: inline-flex; align-items: center; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--border); }
   .trust-badge.upcoming { opacity: 0.4; font-style: italic; }
   .trust-note { font-size: 0.8rem; color: var(--muted-foreground); }
+
+  /* Owner identity */
+  .owner-identity-card {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .owner-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .owner-avatar-fallback {
+    background: color-mix(in srgb, var(--brand-offset-blue) 15%, transparent);
+    color: var(--brand-offset-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .owner-identity-info { display: flex; flex-direction: column; gap: 0.25rem; }
+  .owner-name { font-weight: 600; font-size: 1rem; }
+  .owner-name-link { color: var(--foreground); }
+  .owner-name-link:hover { color: var(--brand-offset-blue); }
+  .owner-desc { font-size: 0.8rem; color: var(--muted-foreground); }
+  .owner-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem; }
+  .badge-basename {
+    background: color-mix(in srgb, #0052FF 12%, transparent);
+    color: #0052FF;
+    border: 1px solid color-mix(in srgb, #0052FF 30%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, #0052FF 20%, transparent);
+  }
+  .badge-coinbase-verified {
+    background: color-mix(in srgb, var(--brand-offset-green) 12%, transparent);
+    color: var(--brand-offset-green);
+    border: 1px solid color-mix(in srgb, var(--brand-offset-green) 30%, transparent);
+  }
 
   /* Footer */
   .back-row { display: flex; justify-content: space-between; margin-top: 2rem; font-size: 0.875rem; }

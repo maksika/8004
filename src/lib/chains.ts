@@ -16,5 +16,13 @@ export const base = defineChain({
   blockExplorers: { default: { name: 'BaseScan', url: 'https://basescan.org' } },
 });
 
+export const mainnet = defineChain({
+  id: 1,
+  name: 'Ethereum',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ['https://cloudflare-eth.com'] } },
+  blockExplorers: { default: { name: 'Etherscan', url: 'https://etherscan.io' } },
+});
+
 export const CHAINS = { celo, base } as const;
 export type ChainKey = keyof typeof CHAINS;

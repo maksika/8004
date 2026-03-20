@@ -4,6 +4,7 @@
   import QRDisplay from '$lib/components/QRDisplay.svelte';
   import { connectWallet, walletAddress, walletError, isConnecting } from '$lib/wallet';
   import { pinToIPFS } from '$lib/ipfs';
+  import type QRCodeLib from 'qrcode';
 
   // ── Wizard state ──────────────────────────────────────────────────────────
   type Network = 'celo' | 'base';
@@ -39,6 +40,138 @@
   // Base Coinbase verification prompt
   let showCoinbasePrompt = false;
   let proceedUnverified = false;
+
+  // ── Base identity flow state ────────────────────────────────────────────
+  let baseQRUri = '';
+  let qrCanvas: HTMLCanvasElement;
+  let siweVerified = false;
+  let siweLoading = false;
+  let siweError = '';
+  let identityLoading = false;
+  let identity: any = null;
+  let hasEnoughForEas = false;
+  let wantEasAttestation = false;
+  let coinbaseProvider: any = null;
+
+  function getIdentityAvatarFallback(addr: string): string {
+    return (addr || '??').slice(2, 4).toUpperCase();
+  }
+
+  async function connectBaseWallet() {
+    isConnecting.set(true);
+    try {
+      const { CoinbaseWalletSDK } = await import('@coinbase/wallet-sdk');
+      const QRCode = (await import('qrcode')).default as typeof QRCodeLib;
+
+      const sdk = new CoinbaseWalletSDK({
+        appName: 'wayMint',
+        appLogoUrl: 'https://8004.way.je/logo.png',
+        appChainIds: [8453],
+      });
+      coinbaseProvider = sdk.makeWeb3Provider({ options: 'all' });
+
+      // Listen for QR URI events
+      coinbaseProvider.on('message', (msg: any) => {
+        if (msg.type === 'qrUrl') {
+          baseQRUri = msg.data;
+          tick().then(() => {
+            if (qrCanvas) QRCode.toCanvas(qrCanvas, baseQRUri, { width: 220 });
+          });
+        }
+      });
+
+      const accounts = await coinbaseProvider.request({ method: 'eth_requestAccounts' });
+      if (accounts[0]) {
+        walletAddress.set(accounts[0]);
+        await resolveBaseIdentity(accounts[0]);
+        await checkEasBalance(accounts[0]);
+      }
+    } catch (e: any) {
+      walletError.set(e.message ?? 'Connection failed');
+    } finally {
+      isConnecting.set(false);
+    }
+  }
+
+  async function resolveBaseIdentity(address: string) {
+    identityLoading = true;
+    try {
+      const res = await fetch('/api/resolve/' + address);
+      if (res.ok) identity = await res.json();
+    } finally {
+      identityLoading = false;
+    }
+  }
+
+  async function checkEasBalance(address: string) {
+    try {
+      if (!coinbaseProvider) return;
+      const balance = await coinbaseProvider.request({
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+      });
+      hasEnoughForEas = BigInt(balance) >= 50000000000000n;
+    } catch {}
+  }
+
+  async function doSiwe() {
+    siweLoading = true;
+    siweError = '';
+    try {
+      const nonceRes = await fetch('/api/nonce');
+      const { nonce } = await nonceRes.json();
+
+      const address = $walletAddress;
+      const name = identity?.name;
+
+      const statement = name
+        ? 'Verify ownership of ' + name + ' for wayMint agent registration.'
+        : 'Verify wallet ownership for wayMint agent registration.';
+
+      const issuedAt = new Date().toISOString();
+      const expirationTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      // Format as EIP-4361 message string
+      const msgStr = [
+        '8004.way.je wants you to sign in with your Ethereum account:',
+        address,
+        '',
+        statement,
+        '',
+        'URI: https://8004.way.je',
+        'Version: 1',
+        'Chain ID: 8453',
+        'Nonce: ' + nonce,
+        'Issued At: ' + issuedAt,
+        'Expiration Time: ' + expirationTime,
+      ].join('\n');
+
+      const provider = coinbaseProvider || window.ethereum;
+      const signature = await provider.request({
+        method: 'personal_sign',
+        params: [msgStr, address],
+      });
+
+      const verifyRes = await fetch('/api/verify-siwe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msgStr, signature, claimedName: name || null }),
+      });
+
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json();
+        throw new Error(err.error ?? 'Verification failed');
+      }
+
+      const verifiedIdentity = await verifyRes.json();
+      identity = { ...identity, ...verifiedIdentity };
+      siweVerified = true;
+    } catch (e: any) {
+      siweError = e.message ?? 'Signing failed';
+    } finally {
+      siweLoading = false;
+    }
+  }
 
   // ── Navigation ────────────────────────────────────────────────────────────
   function goNext() { step = (step + 1) as Step; }
@@ -358,7 +491,7 @@
   }
 
   // Validation helpers
-  $: step2Valid = !!$walletAddress && /^0x[a-fA-F0-9]{40}$/.test(agentAddressInput);
+  $: step2Valid = !!$walletAddress && /^0x[a-fA-F0-9]{40}$/.test(agentAddressInput) && (network !== 'base' || siweVerified);
   $: step3Valid = agentName.trim().length >= 3 && endpoints.some((e) => e.url.trim());
   $: agentCertUrl = mintedAgentId !== null ? `/agent/${network}:${mintedAgentId}` : '';
   $: ownerUrl = $walletAddress ? `/owner/${$walletAddress}` : '';
@@ -409,15 +542,15 @@
                 <img src="/logos/Coinbase_Wordmark_White.svg" alt="Coinbase" class="card-wordmark card-wordmark-coinbase" />
               </div>
               <div class="network-badge badge badge-base">Base Mainnet</div>
-              <h3>Coinbase Verifications</h3>
-              <p>EAS attestation via Coinbase identity verification. No passport scan needed — just a verified Coinbase account.</p>
+              <h3>Base Identity</h3>
+              <p>Basename/ENS identity via the Base App. QR scan on desktop, deep-link on mobile. Optional EAS attestation.</p>
               <ul class="network-features">
-                <li>Coinbase identity check</li>
-                <li>On-chain EAS attestation</li>
-                <li>ERC-8004 Identity Registry</li>
+                <li>Basename / ENS resolution</li>
+                <li>SIWE wallet verification</li>
+                <li>Optional on-chain EAS attestation</li>
                 <li>~2 min registration</li>
               </ul>
-              <div class="network-req">Requires: Verified Coinbase account</div>
+              <div class="network-req">Requires: Base App or Coinbase Wallet</div>
               <div class="network-cta btn btn-secondary">Select Base</div>
             </button>
           </div>
@@ -429,26 +562,113 @@
           <h2 class="step-title">Connect wallet &amp; agent address</h2>
           <p class="step-sub">Your wallet establishes ownership of the agent NFT. Your agent should generate its own keypair.</p>
 
-          <div class="card section-card">
-            <h3 class="section-label">1. Connect your wallet</h3>
-            {#if $walletAddress}
-              <div class="wallet-connected">
-                <span class="badge badge-verified">Connected</span>
-                <code class="mono addr">{truncate($walletAddress)}</code>
-              </div>
-            {:else}
-              <p class="muted-text">Connect the wallet that will own the agent NFT.</p>
-              {#if $walletError}
-                <p class="error-text">{$walletError}</p>
+          <!-- Base: Coinbase Wallet SDK QR connection -->
+          {#if network === 'base'}
+            <div class="card section-card">
+              <h3 class="section-label">1. Connect via Base App</h3>
+              {#if !$walletAddress}
+                <p class="muted-text">Scan with the Base App on your phone, or connect via Coinbase Wallet browser extension.</p>
+                {#if $walletError}
+                  <p class="error-text">{$walletError}</p>
+                {/if}
+                <button class="btn btn-primary" on:click={connectBaseWallet} disabled={$isConnecting}>
+                  {$isConnecting ? 'Connecting...' : 'Connect with Base App'}
+                </button>
+                {#if baseQRUri}
+                  <div class="qr-container">
+                    <canvas bind:this={qrCanvas} class="qr-canvas"></canvas>
+                    <p class="qr-hint">Scan with Base App — tap the scan icon</p>
+                  </div>
+                {/if}
+              {:else}
+                <!-- Identity card after connection -->
+                <div class="wallet-connected">
+                  <span class="badge badge-verified">Connected</span>
+                  <code class="mono addr">{truncate($walletAddress)}</code>
+                </div>
+                {#if identityLoading}
+                  <div class="status-block"><div class="spinner"></div><p>Resolving identity...</p></div>
+                {:else if identity}
+                  <div class="identity-card">
+                    {#if identity.profile?.avatar}
+                      <img src={identity.profile.avatar} alt="avatar" class="identity-avatar" />
+                    {:else}
+                      <div class="identity-avatar identity-avatar-fallback">{getIdentityAvatarFallback($walletAddress)}</div>
+                    {/if}
+                    <div class="identity-info">
+                      {#if identity.name}
+                        <div class="identity-name">{identity.name}</div>
+                      {/if}
+                      {#if identity.profile?.description}
+                        <div class="identity-desc">{identity.profile.description}</div>
+                      {/if}
+                      {#if identity.coinbaseVerification?.found}
+                        <span class="badge badge-verified" style="font-size:0.7rem">Coinbase Verified</span>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
               {/if}
-              <button class="btn btn-primary" on:click={handleConnect} disabled={$isConnecting}>
-                {$isConnecting ? 'Connecting...' : 'Connect Wallet'}
-              </button>
+            </div>
+
+            <!-- SIWE signing step -->
+            {#if $walletAddress && !siweVerified}
+              <div class="card section-card">
+                <h3 class="section-label">2. Verify ownership</h3>
+                <p class="muted-text">Sign a message to prove you control this wallet. No gas required.</p>
+                {#if siweError}
+                  <p class="error-text">{siweError}</p>
+                {/if}
+                <button class="btn btn-primary" on:click={doSiwe} disabled={siweLoading}>
+                  {siweLoading ? 'Waiting for signature...' : 'Sign to Verify'}
+                </button>
+              </div>
             {/if}
-          </div>
+
+            <!-- EAS attestation toggle -->
+            {#if siweVerified}
+              <div class="card section-card">
+                <div class="eas-toggle-row">
+                  <div>
+                    <div class="section-label">On-chain identity attestation (EAS)</div>
+                    <div class="muted-text" style="font-size:0.8rem">
+                      {#if hasEnoughForEas}
+                        Records your verified identity on Base. ~$0.01 gas.
+                      {:else}
+                        Requires ~0.00005 ETH on Base for gas. <a href="https://docs.base.org" target="_blank">Fund via Base App</a>
+                      {/if}
+                    </div>
+                  </div>
+                  <label class="toggle">
+                    <input type="checkbox" bind:checked={wantEasAttestation} disabled={!hasEnoughForEas} />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            {/if}
+          {:else}
+            <!-- Existing EOA/WalletConnect flow for non-Base -->
+            <div class="card section-card">
+              <h3 class="section-label">1. Connect your wallet</h3>
+              {#if $walletAddress}
+                <div class="wallet-connected">
+                  <span class="badge badge-verified">Connected</span>
+                  <code class="mono addr">{truncate($walletAddress)}</code>
+                </div>
+              {:else}
+                <p class="muted-text">Connect the wallet that will own the agent NFT.</p>
+                {#if $walletError}
+                  <p class="error-text">{$walletError}</p>
+                {/if}
+                <button class="btn btn-primary" on:click={handleConnect} disabled={$isConnecting}>
+                  {$isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                </button>
+              {/if}
+            </div>
+          {/if}
 
           <div class="card section-card info-card" class:disabled={!$walletAddress}>
-            <h3 class="section-label">2. Agent address</h3>
+            <h3 class="section-label">{network === 'base' ? '3' : '2'}. Agent address</h3>
             <p class="muted-text">Your agent should generate its own keypair.</p>
             <p class="muted-text">If you are an agent, generate your ECDSA keypair now and have your address ready. If you are a human setting this up, ask your agent to generate a keypair and give you the agent address before proceeding.</p>
             <a href="/skill.md" class="muted-link">&rarr; How agents self-register (skill.md)</a>
@@ -732,6 +952,9 @@
               endpoints = [{ protocol: 'MCP', url: '', version: '' }];
               mintStatus = 'idle'; mintedAgentId = null; mintedTxHash = '';
               showCoinbasePrompt = false; proceedUnverified = false;
+              siweVerified = false; siweError = ''; identity = null;
+              baseQRUri = ''; wantEasAttestation = false; hasEnoughForEas = false;
+              coinbaseProvider = null;
             }}>Register another agent</a>
           </div>
         </div>
@@ -865,4 +1088,62 @@
   .muted-link:hover { color: var(--foreground); }
 
   .step-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+
+  /* Base identity flow */
+  .identity-card {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 0.75rem 0;
+  }
+  .identity-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .identity-avatar-fallback {
+    background: color-mix(in srgb, var(--brand-offset-blue) 15%, transparent);
+    color: var(--brand-offset-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+  .identity-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .identity-desc {
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+    margin-bottom: 0.4rem;
+  }
+  .identity-info { display: flex; flex-direction: column; }
+  .qr-container {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0.75rem; margin-top: 1rem;
+  }
+  .qr-canvas { border-radius: 12px; }
+  .qr-hint { font-size: 0.8rem; color: var(--muted-foreground); text-align: center; }
+  .eas-toggle-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  }
+  .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 999px; cursor: pointer;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--brand-offset-blue); }
+  .toggle input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background: white; border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
 </style>
