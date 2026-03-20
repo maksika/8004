@@ -1,6 +1,7 @@
 export const CONTRACTS = {
   celo: {
     registry: '0xaC3DF9ABf80d0F5c020C06B04Cced27763355944' as `0x${string}`,
+    worldIdRegistry: '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E' as `0x${string}`,
     proofProvider: '0x4b036aFD959B457A208F676cf44Ea3ef73Ea3E3d' as `0x${string}`,
   },
   base: {

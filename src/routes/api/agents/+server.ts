@@ -9,6 +9,8 @@ const REGISTRIES = {
   base: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as `0x${string}`,
 };
 
+const CELO_WORLDID_REGISTRY = '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E' as `0x${string}`;
+
 const DEPLOY_BLOCKS = { celo: 60900000n, base: 25000000n };
 
 const ERC721_ABI = parseAbi([
@@ -29,14 +31,12 @@ async function resolveMetadata(uri: string): Promise<{ name?: string; descriptio
   }
 }
 
-async function getChainAgents(chain: 'celo' | 'base') {
-  const client = createPublicClient({
-    chain: chain === 'celo' ? celo : base,
-    transport: http(),
-  });
-  const registry = REGISTRIES[chain];
-
-  // Get all mint events (Transfer from 0x0)
+async function getRegistryAgents(
+  client: ReturnType<typeof createPublicClient>,
+  registry: `0x${string}`,
+  chain: 'celo' | 'base',
+  fromBlock: bigint,
+) {
   let mintLogs: any[] = [];
   try {
     mintLogs = await client.getLogs({
@@ -49,14 +49,13 @@ async function getChainAgents(chain: 'celo' | 'base') {
         ],
       },
       args: { from: '0x0000000000000000000000000000000000000000' },
-      fromBlock: DEPLOY_BLOCKS[chain],
+      fromBlock,
       toBlock: 'latest',
     });
   } catch {
     return [];
   }
 
-  // Resolve each agent (parallel, capped at 20 at a time to avoid rate limits)
   const agents: any[] = [];
   const BATCH = 10;
 
@@ -101,6 +100,25 @@ async function getChainAgents(chain: 'celo' | 'base') {
   }
 
   return agents;
+}
+
+async function getChainAgents(chain: 'celo' | 'base') {
+  const client = createPublicClient({
+    chain: chain === 'celo' ? celo : base,
+    transport: http(),
+  });
+  const fromBlock = DEPLOY_BLOCKS[chain];
+
+  if (chain === 'celo') {
+    // Scan both Self and World ID registries in parallel
+    const [selfAgents, worldIdAgents] = await Promise.all([
+      getRegistryAgents(client, REGISTRIES.celo, 'celo', fromBlock),
+      getRegistryAgents(client, CELO_WORLDID_REGISTRY, 'celo', fromBlock),
+    ]);
+    return [...selfAgents, ...worldIdAgents];
+  }
+
+  return getRegistryAgents(client, REGISTRIES[chain], chain, fromBlock);
 }
 
 export const GET: RequestHandler = async ({ setHeaders }) => {

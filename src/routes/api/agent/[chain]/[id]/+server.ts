@@ -9,6 +9,16 @@ const REGISTRIES = {
   base: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as `0x${string}`,
 };
 
+const CELO_WORLDID_REGISTRY = '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E' as `0x${string}`;
+
+const WORLDID_REGISTRY_ABI = parseAbi([
+  'function tokenURI(uint256 tokenId) external view returns (string)',
+  'function ownerOf(uint256 tokenId) external view returns (address)',
+  'function getAgentWallet(uint256 agentId) external view returns (address)',
+  'function getMetadata(uint256 agentId, string calldata key) external view returns (bytes)',
+  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+]);
+
 const BASE_ABI = parseAbi([
   'function tokenURI(uint256 tokenId) external view returns (string)',
   'function ownerOf(uint256 tokenId) external view returns (address)',
@@ -50,7 +60,7 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
   }
 
   const viemChain = chain === 'celo' ? celo : base;
-  const registry = REGISTRIES[chain];
+  let registry = REGISTRIES[chain];
 
   const client = createPublicClient({
     chain: viemChain,
@@ -60,6 +70,7 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
   // Fetch on-chain data
   let owner: string;
   let agentURI: string;
+  let usedWorldIdRegistry = false;
 
   try {
     [owner, agentURI] = await Promise.all([
@@ -67,10 +78,26 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
       client.readContract({ address: registry, abi: BASE_ABI, functionName: 'tokenURI', args: [BigInt(agentId)] }),
     ]);
   } catch (e: any) {
-    if (e.message?.includes('ERC721NonexistentToken') || e.message?.includes('revert')) {
+    // For Celo, try the World ID registry as fallback
+    if (chain === 'celo' && (e.message?.includes('ERC721NonexistentToken') || e.message?.includes('revert'))) {
+      try {
+        registry = CELO_WORLDID_REGISTRY;
+        [owner, agentURI] = await Promise.all([
+          client.readContract({ address: CELO_WORLDID_REGISTRY, abi: WORLDID_REGISTRY_ABI, functionName: 'ownerOf', args: [BigInt(agentId)] }),
+          client.readContract({ address: CELO_WORLDID_REGISTRY, abi: WORLDID_REGISTRY_ABI, functionName: 'tokenURI', args: [BigInt(agentId)] }),
+        ]);
+        usedWorldIdRegistry = true;
+      } catch (e2: any) {
+        if (e2.message?.includes('ERC721NonexistentToken') || e2.message?.includes('revert')) {
+          throw error(404, `Agent #${agentId} not found on ${chain}`);
+        }
+        throw error(502, 'Failed to fetch on-chain data');
+      }
+    } else if (e.message?.includes('ERC721NonexistentToken') || e.message?.includes('revert')) {
       throw error(404, `Agent #${agentId} not found on ${chain}`);
+    } else {
+      throw error(502, 'Failed to fetch on-chain data');
     }
-    throw error(502, 'Failed to fetch on-chain data');
   }
 
   // Resolve agent wallet (operational key)
@@ -78,7 +105,7 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
   try {
     agentWallet = await client.readContract({
       address: registry,
-      abi: BASE_ABI,
+      abi: usedWorldIdRegistry ? WORLDID_REGISTRY_ABI : BASE_ABI,
       functionName: 'getAgentWallet',
       args: [BigInt(agentId)],
     });
@@ -89,15 +116,68 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
   let hasHumanProof = false;
   let isProofFresh = false;
   let proofExpiresAt: number | null = null;
+  let verificationProvider: 'self' | 'worldid' | 'coinbase' | null = null;
+  let worldIdNullifier: string | null = null;
+  let worldIdLevel: string | null = null;
 
-  if (chain === 'celo') {
+  if (chain === 'celo' && !usedWorldIdRegistry) {
+    // SelfAgentRegistry — check ZK proof status
     try {
       [hasHumanProof, isProofFresh, proofExpiresAt] = await Promise.all([
         client.readContract({ address: registry, abi: CELO_EXTRA_ABI, functionName: 'hasHumanProof', args: [BigInt(agentId)] }),
         client.readContract({ address: registry, abi: CELO_EXTRA_ABI, functionName: 'isProofFresh', args: [BigInt(agentId)] }),
         client.readContract({ address: registry, abi: CELO_EXTRA_ABI, functionName: 'proofExpiresAt', args: [BigInt(agentId)] }).then(Number),
       ]);
+      if (hasHumanProof) verificationProvider = 'self';
     } catch {}
+  } else if (chain === 'celo' && usedWorldIdRegistry) {
+    // World ID registry — check for worldid-nullifier metadata
+    try {
+      const nullifierBytes = await client.readContract({
+        address: CELO_WORLDID_REGISTRY,
+        abi: WORLDID_REGISTRY_ABI,
+        functionName: 'getMetadata',
+        args: [BigInt(agentId), 'worldid-nullifier'],
+      });
+      if (nullifierBytes && nullifierBytes !== '0x') {
+        hasHumanProof = true;
+        verificationProvider = 'worldid';
+        // Convert bytes to string
+        try {
+          const decoder = new TextDecoder();
+          const bytes = nullifierBytes.startsWith('0x')
+            ? new Uint8Array(Buffer.from(nullifierBytes.slice(2), 'hex'))
+            : new Uint8Array(Buffer.from(nullifierBytes, 'hex'));
+          worldIdNullifier = decoder.decode(bytes);
+        } catch {
+          worldIdNullifier = nullifierBytes as string;
+        }
+      }
+    } catch {}
+
+    try {
+      const levelBytes = await client.readContract({
+        address: CELO_WORLDID_REGISTRY,
+        abi: WORLDID_REGISTRY_ABI,
+        functionName: 'getMetadata',
+        args: [BigInt(agentId), 'worldid-level'],
+      });
+      if (levelBytes && levelBytes !== '0x') {
+        try {
+          const decoder = new TextDecoder();
+          const bytes = levelBytes.startsWith('0x')
+            ? new Uint8Array(Buffer.from(levelBytes.slice(2), 'hex'))
+            : new Uint8Array(Buffer.from(levelBytes, 'hex'));
+          worldIdLevel = decoder.decode(bytes);
+        } catch {
+          worldIdLevel = levelBytes as string;
+        }
+      }
+    } catch {}
+  }
+
+  if (chain === 'base') {
+    verificationProvider = 'coinbase';
   }
 
   // Resolve IPFS metadata
@@ -145,6 +225,9 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
     hasHumanProof,
     isProofFresh,
     proofExpiresAt,
+    verificationProvider,
+    worldIdNullifier,
+    worldIdLevel,
     hasCoinbaseVerification: chain === 'base' && ownerIdentity?.coinbaseVerification?.found,
     ownerIdentity,
     registeredAt,

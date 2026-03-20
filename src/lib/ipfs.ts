@@ -12,6 +12,7 @@ export interface AgentRegistrationFile {
   x402Support: boolean;
   active: boolean;
   supportedTrust: string[];
+  verificationProvider?: string;
 }
 
 export async function pinToIPFS(data: AgentRegistrationFile): Promise<string> {

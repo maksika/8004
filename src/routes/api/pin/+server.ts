@@ -18,6 +18,7 @@ interface RegistrationPayload {
   x402Support?: boolean;
   active?: boolean;
   supportedTrust?: string[];
+  verificationProvider?: string;
 }
 
 export const POST: RequestHandler = async ({ request, platform }) => {
@@ -48,6 +49,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
     x402Support: body.x402Support ?? false,
     active: body.active ?? true,
     supportedTrust: body.supportedTrust ?? ['reputation'],
+    ...(body.verificationProvider ? { verificationProvider: body.verificationProvider } : {}),
   };
 
   const pinatJWT = platform?.env?.PINATA_JWT ?? process.env.PINATA_JWT;
