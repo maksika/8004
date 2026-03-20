@@ -181,6 +181,16 @@
   function selectNetwork(n: Network) {
     network = n;
     goNext();
+    // If Base and already connected via a non-Coinbase provider, resolve identity gracefully
+    if (n === 'base' && $walletAddress && !coinbaseProvider) {
+      resolveBaseIdentity($walletAddress);
+      // Try to check ETH balance via window.ethereum if available
+      if (typeof window !== 'undefined' && window.ethereum) {
+        window.ethereum.request({ method: 'eth_getBalance', params: [$walletAddress, 'latest'] })
+          .then((bal: string) => { hasEnoughForEas = BigInt(bal) >= 50000000000000n; })
+          .catch(() => {});
+      }
+    }
   }
 
   // ── Step 2: Wallet & Key ──────────────────────────────────────────────────
@@ -578,6 +588,30 @@
                   <div class="qr-container">
                     <canvas bind:this={qrCanvas} class="qr-canvas"></canvas>
                     <p class="qr-hint">Scan with Base App — tap the scan icon</p>
+                  </div>
+                {/if}
+              {:else if !coinbaseProvider}
+                <!-- Already connected via header/MetaMask — graceful fallback -->
+                <div class="wallet-connected">
+                  <span class="badge badge-verified">Connected</span>
+                  <code class="mono addr">{truncate($walletAddress)}</code>
+                </div>
+                <p class="muted-text" style="margin-top:0.5rem;font-size:0.8rem">
+                  Connected via your browser wallet. Basename resolution will work if your address has one registered. You can still sign to verify ownership below.
+                </p>
+                {#if identityLoading}
+                  <div class="status-block" style="padding:0.75rem 0"><div class="spinner"></div><p style="font-size:0.85rem">Resolving identity...</p></div>
+                {:else if identity?.name}
+                  <div class="identity-card" style="margin-top:0.5rem">
+                    {#if identity.profile?.avatar}
+                      <img src={identity.profile.avatar} alt="avatar" class="identity-avatar" />
+                    {:else}
+                      <div class="identity-avatar identity-avatar-fallback">{getIdentityAvatarFallback($walletAddress)}</div>
+                    {/if}
+                    <div class="identity-info">
+                      <div class="identity-name">{identity.name}</div>
+                      {#if identity.profile?.description}<div class="identity-desc">{identity.profile.description}</div>{/if}
+                    </div>
                   </div>
                 {/if}
               {:else}
