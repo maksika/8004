@@ -539,7 +539,16 @@
       });
       mintStatus = 'idle';
 
-      const { hashSignal } = await import('@worldcoin/idkit-core');
+      // hashSignal: keccak256 of the signal, with the top byte zeroed (World ID spec)
+      // Implemented inline to avoid @worldcoin/idkit-core WASM bundling issues on CF
+      async function hashSignal(value: string): Promise<string> {
+        const { keccak256, toBytes } = await import('viem');
+        const hash = keccak256(toBytes(value));
+        // Zero the top byte (shift right 8 bits)
+        const bytes = Array.from({ length: 32 }, (_, i) => parseInt(hash.slice(2 + i * 2, 4 + i * 2), 16));
+        bytes[0] = 0;
+        return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
 
       // Generate bridge request key pair (random 32 bytes)
       const keyBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -547,8 +556,8 @@
 
       // Create the bridge session by initializing the request
       const signal = $walletAddress || '';
-      const signalHash = hashSignal(signal);
-      const actionHash = hashSignal('register-agent');
+      const signalHash = await hashSignal(signal);
+      const actionHash = await hashSignal('register-agent');
 
       // Build the verification request payload
       const verificationRequest = {
