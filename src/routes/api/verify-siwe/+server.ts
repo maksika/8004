@@ -1,12 +1,39 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { SiweMessage } from 'siwe';
 import { createPublicClient, http, getAddress } from 'viem';
 import { base, mainnet } from '$lib/chains';
 import { consumeNonce } from '$lib/server/nonce-store';
 
 const baseClient = createPublicClient({ chain: base, transport: http() });
 const l1Client = createPublicClient({ chain: mainnet, transport: http() });
+
+// Parse EIP-4361 SIWE message manually (avoids `siwe` pkg bundling issues on CF)
+function parseSiweMessage(msg: string): {
+  domain: string;
+  address: string;
+  chainId: number;
+  nonce: string;
+  expirationTime: string | null;
+} | null {
+  try {
+    const lines = msg.split('\n');
+    const domain = lines[0]?.split(' wants you to sign')[0]?.trim() ?? '';
+    const address = lines[1]?.trim() ?? '';
+
+    const chainIdMatch = msg.match(/^Chain ID:\s*(\d+)/m);
+    const nonceMatch = msg.match(/^Nonce:\s*(\S+)/m);
+    const expiryMatch = msg.match(/^Expiration Time:\s*(.+)/m);
+
+    const chainId = chainIdMatch ? parseInt(chainIdMatch[1], 10) : 0;
+    const nonce = nonceMatch ? nonceMatch[1].trim() : '';
+    const expirationTime = expiryMatch ? expiryMatch[1].trim() : null;
+
+    if (!domain || !address || !chainId || !nonce) return null;
+    return { domain, address, chainId, nonce, expirationTime };
+  } catch {
+    return null;
+  }
+}
 
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json().catch(() => null);
@@ -20,11 +47,9 @@ export const POST: RequestHandler = async ({ request }) => {
     claimedName?: string;
   };
 
-  // Parse SIWE message
-  let siwe: SiweMessage;
-  try {
-    siwe = new SiweMessage(messageStr);
-  } catch {
+  // Parse SIWE message (no external dependency)
+  const siwe = parseSiweMessage(messageStr);
+  if (!siwe) {
     throw error(400, 'Invalid SIWE message format');
   }
 
@@ -38,8 +63,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   // Check expiry
   if (siwe.expirationTime) {
-    const exp = new Date(siwe.expirationTime);
-    if (exp.getTime() < Date.now()) {
+    if (new Date(siwe.expirationTime).getTime() < Date.now()) {
       throw error(400, 'SIWE message expired');
     }
   }
@@ -52,7 +76,7 @@ export const POST: RequestHandler = async ({ request }) => {
   const address = getAddress(siwe.address);
 
   // Verify signature using viem (handles both EOA and EIP-1271 Smart Wallets)
-  let valid: boolean;
+  let valid = false;
   try {
     valid = await baseClient.verifyMessage({
       address: address as `0x${string}`,
@@ -78,11 +102,9 @@ export const POST: RequestHandler = async ({ request }) => {
         nameVerified = true;
       } else {
         resolvedName = null;
-        nameVerified = false;
       }
     } catch {
       resolvedName = null;
-      nameVerified = false;
     }
   }
 
@@ -90,13 +112,10 @@ export const POST: RequestHandler = async ({ request }) => {
   let accountType: 'eoa' | 'smart_wallet' = 'eoa';
   try {
     const code = await baseClient.getCode({ address: address as `0x${string}` });
-    if (code && code !== '0x') {
-      accountType = 'smart_wallet';
-    }
+    if (code && code !== '0x') accountType = 'smart_wallet';
   } catch {}
 
-  // Identity assertion (PRD §6.5)
-  const assertion = {
+  return json({
     address,
     name: resolvedName,
     nameVerified,
@@ -105,7 +124,5 @@ export const POST: RequestHandler = async ({ request }) => {
     verifiedAt: new Date().toISOString(),
     method: 'siwe',
     domain: siwe.domain,
-  };
-
-  return json(assertion);
+  });
 };

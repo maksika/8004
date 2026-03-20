@@ -19,6 +19,8 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
+    "@ethereum-attestation-service/eas-sdk": "^2.9.0",
     "@selfxyz/agent-sdk": "^0.2.1",
     "@solana/kit": "^5.5.1",
     "@types/react": "^19.2.14",
