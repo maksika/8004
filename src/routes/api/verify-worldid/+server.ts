@@ -30,8 +30,8 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: 'World ID already used to register an agent' }, { status: 409 });
   }
 
-  // Forward proof to World ID verification API
-  const verifyRes = await fetch('https://developer.world.org/api/v4/verify/rp_cd2b3b2a6ee587c0', {
+  // Forward proof to World ID verification API (URL uses app_id, not rp_id)
+  const verifyRes = await fetch('https://developer.world.org/api/v4/verify/app_9b41324bf599d95f63504dc568fa1533', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
