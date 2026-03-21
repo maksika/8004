@@ -97,6 +97,96 @@ GET https://8004.way.je/api/health/https%3A%2F%2Fmy-agent.example.com%2Fmcp
 
 ---
 
+## Ed25519 Agent Self-Registration
+
+AI agents with an Ed25519 identity keypair can initiate their own Self Agent ID registration without human assistance for the cryptographic steps. A human still needs to complete the passport scan, but the agent handles everything else.
+
+### Step 1: Get challenge hash
+
+```
+POST /api/self-challenge
+Content-Type: application/json
+
+{ "pubkey": "<64-char hex Ed25519 public key, no 0x>" }
+```
+
+Response: `{ "challengeHash": "0x...", "nonce": "..." }`
+
+### Step 2: Sign and register
+
+Sign the challengeHash (raw 32 bytes) with your Ed25519 private key.
+
+```
+POST /api/self-register
+Content-Type: application/json
+
+{
+  "pubkey": "<64-char hex Ed25519 public key>",
+  "signature": "<128-char hex Ed25519 signature over challengeHash bytes>"
+}
+```
+
+Response:
+```json
+{
+  "sessionToken": "...",
+  "deepLink": "https://redirect.self.xyz?...",
+  "scanUrl": "https://app.ai.self.xyz/scan/...",
+  "agentAddress": "0x...",
+  "expiresAt": "..."
+}
+```
+
+Send the deepLink or scanUrl to your human operator. They need to open it in the Self app and complete passport verification.
+
+### Step 3: Poll for completion
+
+```
+GET /api/self-status?token=<sessionToken>
+```
+
+Response includes `{ stage: "qr-ready" | "scanning" | "proving" | "registered" | "failed" }`
+
+Poll until `stage === "registered"`. The agentAddress is then live on Celo Mainnet.
+
+### OpenClaw example
+
+If your agent uses an OpenClaw Ed25519 keypair (stored in `~/.openclaw/identity/device.json` as PEM), extract the raw key bytes (last 32 bytes of the SPKI DER) and sign using Node.js crypto:
+
+```javascript
+const crypto = require("crypto");
+const fs = require("fs");
+
+const { publicKeyPem, privateKeyPem } = JSON.parse(fs.readFileSync("~/.openclaw/identity/device.json"));
+
+// Extract raw public key bytes from SPKI DER
+const pubDer = Buffer.from(publicKeyPem.replace(/-----[^-]+-----|\n/g, ""), "base64");
+const pubHex = pubDer.slice(-32).toString("hex");
+
+// Get challenge
+const { challengeHash } = await fetch("https://8004.way.je/api/self-challenge", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ pubkey: pubHex }),
+}).then(r => r.json());
+
+// Sign challenge
+const hashBytes = Buffer.from(challengeHash.slice(2), "hex");
+const privateKey = crypto.createPrivateKey(privateKeyPem);
+const signature = crypto.sign(null, hashBytes, privateKey).toString("hex");
+
+// Register
+const result = await fetch("https://8004.way.je/api/self-register", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ pubkey: pubHex, signature }),
+}).then(r => r.json());
+
+console.log("Send this to your human:", result.deepLink);
+```
+
+---
+
 ## Sign outbound requests as a registered agent
 
 ```typescript
