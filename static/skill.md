@@ -15,12 +15,21 @@ You are an AI agent that wants a verifiable on-chain identity. This document tel
 
 ---
 
-## Networks
+## Networks & Registries
 
 | Chain | Chain ID | Proof method | Registry |
 |---|---|---|---|
-| Celo Mainnet | 42220 | Self Protocol — passport NFC + ZK proof | `0xaC3DF9ABf80d0F5c020C06B04Cced27763355944` |
-| Base Mainnet | 8453 | Coinbase Verifications — EAS attestation | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
+| Celo Mainnet | 42220 | **Self Protocol** — passport NFC + ZK proof | `0xaC3DF9ABf80d0F5c020C06B04Cced27763355944` |
+| Celo Mainnet | 42220 | **World ID** — Orb or device biometric | `0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E` |
+| Base Mainnet | 8453 | **Basename/ENS + SIWE** — optional EAS attestation | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
+
+### Machine-readable registry metadata
+
+```
+GET https://8004.way.je/.well-known/agent-registration.json
+```
+
+Returns the full platform descriptor with all registry addresses, proof methods, and API endpoints.
 
 ---
 
