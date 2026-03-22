@@ -16,6 +16,13 @@
   let network: Network | null = null;
   let agentAddressInput = '';
 
+  // Celo ECDSA agent linking state
+  let celoAgentAddress = '';
+  let celoChallengeHash = '';
+  let celoAgentSig = '';
+  let celoLinkStatus: 'idle' | 'pending' = 'idle';
+  let celoLinkError = '';
+
   // Agent details form
   let agentName = '';
   let agentDescription = '';
@@ -178,6 +185,26 @@
   function goBack() { step = (step - 1) as Step; }
 
   // ── Step 1: Network ───────────────────────────────────────────────────────
+  async function fetchCeloChallenge() {
+    if (!celoAgentAddress || !/^0x[a-fA-F0-9]{40}$/.test(celoAgentAddress) || !$walletAddress) return;
+    celoLinkStatus = 'pending';
+    celoLinkError = '';
+    try {
+      const res = await fetch('/api/celo-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentAddress: celoAgentAddress, humanAddress: $walletAddress }),
+      });
+      if (!res.ok) throw new Error('Challenge request failed');
+      const data = await res.json();
+      celoChallengeHash = data.challengeHash;
+    } catch (e: any) {
+      celoLinkError = e.message ?? 'Failed to get challenge';
+    } finally {
+      celoLinkStatus = 'idle';
+    }
+  }
+
   function selectNetwork(n: Network) {
     network = n;
     goNext();
@@ -259,23 +286,45 @@
     if (!$walletAddress) return;
 
     try {
-      // Step 1: Call Self Agent ID API to get a session + deepLink
-      const res = await fetch('https://app.ai.self.xyz/api/agent/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'linked',
-          network: 'mainnet',
-          humanAddress: $walletAddress,
-          agentName,
-          agentDescription,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `Registration API error: ${res.status}`);
+      // Step 1: Get a Self session — use agent-linked flow if ECDSA key + signature provided
+      let session: any;
+      if (celoAgentAddress && celoAgentSig && celoAgentSig.length === 132) {
+        // Use wayMint's celo-register endpoint which embeds the agent key in the QR
+        const linkRes = await fetch('/api/celo-register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentAddress: celoAgentAddress,
+            humanAddress: $walletAddress,
+            signature: celoAgentSig,
+            agentName,
+            agentDescription,
+          }),
+        });
+        if (!linkRes.ok) {
+          const err = await linkRes.json().catch(() => ({}));
+          throw new Error(err.error ?? 'Agent-linked registration failed');
+        }
+        session = await linkRes.json();
+      } else {
+        // Standard Self registration — Self generates the agent key
+        const res = await fetch('https://app.ai.self.xyz/api/agent/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'linked',
+            network: 'mainnet',
+            humanAddress: $walletAddress,
+            agentName,
+            agentDescription,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error ?? `Registration API error: ${res.status}`);
+        }
+        session = await res.json();
       }
-      const session = await res.json();
 
       if (!session.deepLink) throw new Error('No deepLink in registration response');
 
@@ -722,10 +771,63 @@
             </div>
           </div>
           {:else}
-          <div class="card section-card info-card" class:disabled={!$walletAddress}>
-            <h3 class="section-label">2. Agent identity</h3>
-            <p class="muted-text">Self Protocol will generate a cryptographic identity for your agent during the passport scan. No separate keypair needed — your agent's identity is embedded in the Self verification.</p>
-            <a href="/skill.md" class="muted-link">&rarr; How agents self-register (skill.md)</a>
+          <div class="card section-card" class:disabled={!$walletAddress}>
+            <h3 class="section-label">2. Link agent keypair <span class="optional">(optional)</span></h3>
+            <p class="muted-text">Link your AI agent's ECDSA address so it controls the identity on-chain. If skipped, Self Protocol generates a temporary key during the passport scan.</p>
+
+            <div class="form-group" style="margin-top:1rem">
+              <label class="form-label" for="celoAgentAddr">Agent ECDSA address</label>
+              <div style="display:flex;gap:0.5rem">
+                <input
+                  id="celoAgentAddr"
+                  type="text"
+                  class="form-input"
+                  bind:value={celoAgentAddress}
+                  placeholder="0x..."
+                  style="flex:1"
+                />
+                <button
+                  class="btn btn-secondary btn-sm"
+                  on:click={fetchCeloChallenge}
+                  disabled={celoLinkStatus === 'pending' || !celoAgentAddress || !$walletAddress}
+                >
+                  {celoLinkStatus === 'pending' ? '...' : 'Get challenge'}
+                </button>
+              </div>
+              <span class="form-hint">Your agent's address — not your owner wallet</span>
+            </div>
+
+            {#if celoChallengeHash}
+              <div class="celo-challenge-box">
+                <div class="section-label" style="margin-bottom:0.4rem;font-size:0.8rem">Challenge hash — sign with agent key</div>
+                <code class="challenge-hash">{celoChallengeHash}</code>
+                <p class="muted-text" style="font-size:0.75rem;margin-top:0.5rem">
+                  Ask your agent to sign this with <code>signMessage({'{'} message: {'{'} raw: challengeHash {'}'} {'}'})</code>
+                </p>
+              </div>
+
+              <div class="form-group" style="margin-top:0.75rem">
+                <label class="form-label" for="celoAgentSig">Agent signature</label>
+                <input
+                  id="celoAgentSig"
+                  type="text"
+                  class="form-input"
+                  bind:value={celoAgentSig}
+                  placeholder="0x..."
+                />
+                <span class="form-hint">132-char hex signature from your agent</span>
+              </div>
+
+              {#if celoAgentSig && celoAgentSig.length === 132}
+                <span class="badge badge-verified" style="font-size:0.75rem">✓ Agent key will be linked on-chain</span>
+              {/if}
+            {/if}
+
+            {#if celoLinkError}
+              <p class="error-text" style="margin-top:0.5rem">{celoLinkError}</p>
+            {/if}
+
+            <a href="/skill.md" class="muted-link" style="margin-top:0.75rem;display:block">&rarr; How agents self-register (skill.md)</a>
           </div>
           {/if}
 
@@ -1194,5 +1296,20 @@
     transition: 0.2s;
   }
   .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  .celo-challenge-box {
+    background: color-mix(in srgb, var(--brand-offset-green) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand-offset-green) 25%, transparent);
+    border-radius: calc(var(--radius) * 0.75);
+    padding: 0.75rem 1rem;
+    margin-top: 0.5rem;
+  }
+  .challenge-hash {
+    font-size: 0.7rem;
+    word-break: break-all;
+    color: var(--brand-offset-green);
+    font-family: var(--font-mono);
+    display: block;
+  }
 
 </style>
