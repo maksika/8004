@@ -4,9 +4,6 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".svelte-kit/cloudflare"
 
 [vars]
-WORLD_ID_APP_ID = "app_9b41324bf599d95f63504dc568fa1533"
-WORLD_ID_RP_ID = "rp_cd2b3b2a6ee587c0"
-CELO_WORLDID_REGISTRY = "0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E"
 
 [[kv_namespaces]]
 binding = "CACHE"

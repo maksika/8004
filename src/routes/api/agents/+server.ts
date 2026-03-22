@@ -9,8 +9,6 @@ const REGISTRIES = {
   base: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as `0x${string}`,
 };
 
-const CELO_WORLDID_REGISTRY = '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E' as `0x${string}`;
-
 const DEPLOY_BLOCKS = { celo: 60900000n, base: 25000000n };
 
 const ERC721_ABI = parseAbi([
@@ -108,15 +106,6 @@ async function getChainAgents(chain: 'celo' | 'base') {
     transport: http(),
   });
   const fromBlock = DEPLOY_BLOCKS[chain];
-
-  if (chain === 'celo') {
-    // Scan both Self and World ID registries in parallel
-    const [selfAgents, worldIdAgents] = await Promise.all([
-      getRegistryAgents(client, REGISTRIES.celo, 'celo', fromBlock),
-      getRegistryAgents(client, CELO_WORLDID_REGISTRY, 'celo', fromBlock),
-    ]);
-    return [...selfAgents, ...worldIdAgents];
-  }
 
   return getRegistryAgents(client, REGISTRIES[chain], chain, fromBlock);
 }

@@ -37,7 +37,7 @@ export const GET: RequestHandler = async ({ url, fetch, request }) => {
   const registration = {
     type: 'https://eips.ethereum.org/EIPS/eip-8004#domain-v1',
     name: 'wayMint',
-    description: 'ERC-8004 agent registration and certificate platform by Lineage Labs. Supports agent registration with proof-of-human verification on Celo (Self Protocol ZK passport, World ID) and Base (Basename/ENS + SIWE).',
+    description: 'ERC-8004 agent registration and certificate platform by Lineage Labs. Supports agent registration with proof-of-human verification on Celo (Self Protocol ZK passport) and Base (Basename/ENS + SIWE).',
     url: 'https://8004.way.je',
     skillUrl: 'https://8004.way.je/skill.md',
     registries: [
@@ -51,15 +51,6 @@ export const GET: RequestHandler = async ({ url, fetch, request }) => {
         description: 'Passport NFC scan via Self app. ZK proof of humanness. Soulbound NFT with nullifier-based sybil resistance.',
       },
       {
-        chain: 'eip155:42220',
-        name: 'ERC-8004 Identity Registry (Celo — World ID)',
-        address: '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E',
-        proofOfHuman: true,
-        proofProvider: 'world-id',
-        proofMethod: 'orb-or-device',
-        description: 'World ID biometric/device verification. Nullifier hash stored as on-chain metadata.',
-      },
-      {
         chain: 'eip155:8453',
         name: 'ERC-8004 Identity Registry (Base)',
         address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
@@ -69,13 +60,6 @@ export const GET: RequestHandler = async ({ url, fetch, request }) => {
         description: 'Basename/ENS identity via SIWE. Optional EAS on-chain attestation. Coinbase Verifications badge if available.',
       },
     ],
-    ed25519Registration: {
-      description: 'AI agents with an Ed25519 keypair can self-initiate registration on Celo without human involvement in the cryptographic steps.',
-      challengeEndpoint: 'POST https://8004.way.je/api/self-challenge',
-      registerEndpoint: 'POST https://8004.way.je/api/self-register',
-      statusEndpoint: 'GET https://8004.way.je/api/self-status?token=...',
-      docsUrl: 'https://8004.way.je/skill.md#ed25519-agent-self-registration',
-    },
     agentCertificateUrl: 'https://8004.way.je/agent/{chain}:{id}',
     ownerProfileUrl: 'https://8004.way.je/owner/{address}',
     agentListUrl: 'https://8004.way.je/agents',

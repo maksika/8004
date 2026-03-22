@@ -7,32 +7,15 @@
   const meta = agent.metadata ?? {};
 
   // Derived
-  const isWorldId = agent.verificationProvider === 'worldid';
-  const isVerified = isWorldId
-    ? agent.hasHumanProof
-    : chain === 'celo'
-      ? (agent.hasHumanProof && agent.isProofFresh)
-      : agent.hasCoinbaseVerification;
-  const verificationMethod = isWorldId
-    ? 'World ID'
-    : chain === 'celo'
-      ? 'Self Protocol (ZK passport)'
-      : 'Coinbase Verifications';
-  const verificationDesc = isWorldId
-    ? 'This agent\'s owner proved their identity using World ID. A cryptographic proof confirms a unique human is behind this agent.'
-    : chain === 'celo'
-      ? 'This agent\'s owner proved their identity using Self Protocol. A zero-knowledge proof confirms a real human is behind this agent, without revealing personal data.'
-      : 'This agent\'s owner verified their identity via Coinbase. An on-chain EAS attestation confirms a real person is behind this agent.';
-
-  const worldIdLevel: string | null = agent.worldIdLevel ?? null;
-  function getWorldIdBadgeClass(): string {
-    return worldIdLevel === 'orb' ? 'badge-worldid-orb' : 'badge-worldid-device';
-  }
-  function getWorldIdBadgeLabel(): string {
-    if (worldIdLevel === 'orb') return 'World ID (Orb)';
-    if (worldIdLevel === 'device') return 'World ID (Device)';
-    return 'World ID';
-  }
+  const isVerified = chain === 'celo'
+    ? (agent.hasHumanProof && agent.isProofFresh)
+    : agent.hasCoinbaseVerification;
+  const verificationMethod = chain === 'celo'
+    ? 'Self Protocol (ZK passport)'
+    : 'Coinbase Verifications';
+  const verificationDesc = chain === 'celo'
+    ? 'This agent\'s owner proved their identity using Self Protocol. A zero-knowledge proof confirms a real human is behind this agent, without revealing personal data.'
+    : 'This agent\'s owner verified their identity via Coinbase. An on-chain EAS attestation confirms a real person is behind this agent.';
 
   const services = meta.services ?? [];
   const supportedTrust = meta.supportedTrust ?? [];
@@ -138,15 +121,7 @@
             <span class="badge {chain === 'celo' ? 'badge-celo' : 'badge-base'}">
               {chain === 'celo' ? '⬡' : '◈'} {chainLabel}
             </span>
-            {#if isVerified && isWorldId}
-              <button
-                class="badge {getWorldIdBadgeClass()} verified-badge"
-                on:click={() => badgeTooltipOpen = !badgeTooltipOpen}
-                title="Click for details"
-              >
-                🌍 Verified Human — {getWorldIdBadgeLabel()}
-              </button>
-            {:else if isVerified}
+            {#if isVerified}
               <button
                 class="badge badge-verified verified-badge"
                 on:click={() => badgeTooltipOpen = !badgeTooltipOpen}
@@ -468,20 +443,6 @@
     background: color-mix(in srgb, var(--brand-offset-green) 12%, transparent);
     color: var(--brand-offset-green);
     border: 1px solid color-mix(in srgb, var(--brand-offset-green) 30%, transparent);
-  }
-
-  /* World ID badges */
-  .badge-worldid-orb {
-    background: color-mix(in srgb, var(--brand-offset-green) 12%, transparent);
-    color: var(--brand-offset-green);
-    border: 1px solid color-mix(in srgb, var(--brand-offset-green) 30%, transparent);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--brand-offset-green) 20%, transparent);
-  }
-  .badge-worldid-device {
-    background: color-mix(in srgb, #f59e0b 12%, transparent);
-    color: #f59e0b;
-    border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
-    box-shadow: 0 0 8px color-mix(in srgb, #f59e0b 20%, transparent);
   }
 
   /* Footer */

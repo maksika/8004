@@ -32,13 +32,6 @@
   let mintedAgentId: number | null = null;
   let mintedTxHash = '';
 
-  // Celo proof method sub-selector
-  let celoProofMethod: 'self' | 'worldid' | null = null;
-
-  // World ID state
-  let worldIdStatus: 'idle' | 'pending' | 'verified' | 'error' = 'idle';
-  let worldIdError = '';
-
   // Celo / Self QR state
   type QRStatus = 'waiting' | 'connected' | 'generating' | 'done' | 'error';
   let qrStatus: QRStatus = 'waiting';
@@ -187,8 +180,8 @@
   // ── Step 1: Network ───────────────────────────────────────────────────────
   function selectNetwork(n: Network) {
     network = n;
+    goNext();
     if (n === 'base') {
-      goNext();
       // If Base and already connected via a non-Coinbase provider, resolve identity gracefully
       if ($walletAddress && !coinbaseProvider) {
         resolveBaseIdentity($walletAddress);
@@ -199,7 +192,6 @@
         }
       }
     }
-    // For "celo": stay on step 0, show sub-selector
   }
 
   // ── Step 2: Wallet & Key ──────────────────────────────────────────────────
@@ -509,247 +501,6 @@
     }
   }
 
-  // ── World ID flow ────────────────────────────────────────────────────────
-  // World ID bridge: manual implementation since IDKit v4 requires rp_context
-  // (server-side signing key) which we don't have. We use the bridge HTTP protocol directly.
-  const WORLDID_BRIDGE = 'https://bridge.worldcoin.org';
-  let worldIdBridgeUrl = '';
-
-  async function startWorldIdVerification() {
-    worldIdStatus = 'pending';
-    worldIdError = '';
-    try {
-      // Pin metadata first
-      mintStatus = 'pinning';
-      const validEndpoints = endpoints.filter((e) => e.url.trim());
-      agentURI = await pinToIPFS({
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-        name: agentName,
-        description: agentDescription,
-        ...(agentImage.trim() ? { image: agentImage.trim() } : {}),
-        services: validEndpoints.map((e) => ({
-          name: e.protocol,
-          endpoint: e.url,
-          ...(e.version.trim() ? { version: e.version } : {}),
-        })),
-        x402Support: false,
-        active: true,
-        supportedTrust: ['reputation', 'worldid'],
-        verificationProvider: 'worldid',
-      });
-      mintStatus = 'idle';
-
-      // hashSignal: keccak256 of the signal, with the top byte zeroed (World ID spec)
-      // Implemented inline to avoid @worldcoin/idkit-core WASM bundling issues on CF
-      async function hashSignal(value: string): Promise<string> {
-        const { keccak256, toBytes } = await import('viem');
-        const hash = keccak256(toBytes(value));
-        // Zero the top byte (shift right 8 bits)
-        const bytes = Array.from({ length: 32 }, (_, i) => parseInt(hash.slice(2 + i * 2, 4 + i * 2), 16));
-        bytes[0] = 0;
-        return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
-      }
-
-      // Generate bridge request key pair (random 32 bytes)
-      const keyBytes = crypto.getRandomValues(new Uint8Array(32));
-      const requestId = Array.from(keyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-
-      // Create the bridge session by initializing the request
-      const signal = $walletAddress || '';
-      const signalHash = await hashSignal(signal);
-      const actionHash = await hashSignal('register-agent');
-
-      // Build the verification request payload
-      const verificationRequest = {
-        app_id: 'app_9b41324bf599d95f63504dc568fa1533',
-        action: actionHash,
-        signal_hash: signalHash,
-        action_description: 'Register AI agent on wayMint',
-        verification_level: 'device',
-        credential_types: ['device', 'orb'],
-      };
-
-      // POST to bridge to create session
-      const bridgeRes = await fetch(WORLDID_BRIDGE + '/request/' + requestId, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(verificationRequest),
-      });
-      if (!bridgeRes.ok) {
-        throw new Error('Failed to initialize World ID bridge session');
-      }
-
-      // Generate World App deep link
-      const deepLinkParams = new URLSearchParams({
-        t: 'wld',
-        i: requestId,
-        b: WORLDID_BRIDGE,
-        k: requestId,
-      });
-      worldIdBridgeUrl = 'https://worldcoin.org/verify?' + deepLinkParams.toString();
-
-      // Poll bridge for result (up to 5 minutes)
-      const maxPolls = 60;
-      let pollCount = 0;
-      let result: any = null;
-
-      while (pollCount < maxPolls) {
-        await new Promise(r => setTimeout(r, 5000));
-        pollCount++;
-
-        try {
-          const pollRes = await fetch(WORLDID_BRIDGE + '/response/' + requestId);
-          if (pollRes.status === 200) {
-            result = await pollRes.json();
-            break;
-          }
-          // 202 = still pending, 404 = expired
-          if (pollRes.status === 404) {
-            throw new Error('World ID session expired. Please try again.');
-          }
-        } catch (pollErr: any) {
-          if (pollErr.message?.includes('expired')) throw pollErr;
-        }
-      }
-
-      if (!result) {
-        throw new Error('World ID verification timed out. Please try again.');
-      }
-
-      worldIdStatus = 'verified';
-
-      // Verify server-side
-      const verifyRes = await fetch('/api/verify-worldid', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nullifier_hash: result.nullifier_hash,
-          merkle_root: result.merkle_root,
-          proof: result.proof,
-          verification_level: result.verification_level ?? result.credential_type ?? 'device',
-          action: 'register-agent',
-          signal: signal,
-        }),
-      });
-      if (!verifyRes.ok) {
-        const err = await verifyRes.json();
-        throw new Error(err.error ?? 'World ID verification failed');
-      }
-      const verified = await verifyRes.json();
-
-      // Mint on Celo using vanilla ERC-8004 registry
-      await mintWorldIdOnCelo(verified.nullifier_hash, verified.verification_level);
-    } catch (e: any) {
-      worldIdStatus = 'error';
-      worldIdError = e.message ?? 'World ID verification failed';
-      mintStatus = 'idle';
-    }
-  }
-
-  async function mintWorldIdOnCelo(nullifierHash: string, verificationLevel: string) {
-    if (!$walletAddress || typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('Wallet not connected');
-    }
-
-    // Switch to Celo if needed
-    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (parseInt(currentChainId as string, 16) !== 42220) {
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0xa4ec' }],
-        });
-      } catch (switchErr: any) {
-        if (switchErr.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: '0xa4ec',
-              chainName: 'Celo Mainnet',
-              nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
-              rpcUrls: ['https://forno.celo.org'],
-              blockExplorerUrls: ['https://celoscan.io'],
-            }],
-          });
-        } else {
-          throw switchErr;
-        }
-      }
-    }
-
-    const { createPublicClient, createWalletClient, custom, http, parseAbi, parseEventLogs, toBytes } = await import('viem');
-    const { celo } = await import('$lib/chains');
-
-    const REGISTRY = '0x68635657b46d3f3b84e6bc6a67463fB86fff8d1E' as `0x${string}`;
-    const registryAbi = parseAbi([
-      'function register(string calldata agentURI) external returns (uint256 agentId)',
-      'function setMetadata(uint256 agentId, string calldata key, bytes calldata value) external',
-      'function setAgentWallet(uint256 agentId, address agentWallet) external',
-      'event Registered(uint256 indexed agentId, address indexed owner, string agentURI)',
-    ]);
-
-    const publicClient = createPublicClient({ chain: celo, transport: http() });
-    const walletClient = createWalletClient({
-      chain: celo,
-      transport: custom(window.ethereum),
-    });
-    const account = $walletAddress as `0x${string}`;
-
-    mintStatus = 'minting';
-
-    // Step 1: register
-    const hash = await walletClient.writeContract({
-      address: REGISTRY,
-      abi: registryAbi,
-      functionName: 'register',
-      args: [agentURI],
-      account,
-    });
-
-    mintStatus = 'polling';
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    const logs = parseEventLogs({ abi: registryAbi, logs: receipt.logs });
-    const ev = logs.find((l: any) => l.eventName === 'Registered') as any;
-    if (!ev) throw new Error('Registration event not found');
-    mintedAgentId = Number(ev.args.agentId);
-    mintedTxHash = hash;
-
-    const agentIdBig = BigInt(mintedAgentId);
-
-    // Step 2: setMetadata — store nullifier hash and verification level
-    const nullifierBytes = toBytes(nullifierHash);
-    await walletClient.writeContract({
-      address: REGISTRY,
-      abi: registryAbi,
-      functionName: 'setMetadata',
-      args: [agentIdBig, 'worldid-nullifier', nullifierBytes as unknown as `0x${string}`],
-      account,
-    });
-
-    const levelBytes = toBytes(verificationLevel);
-    await walletClient.writeContract({
-      address: REGISTRY,
-      abi: registryAbi,
-      functionName: 'setMetadata',
-      args: [agentIdBig, 'worldid-level', levelBytes as unknown as `0x${string}`],
-      account,
-    });
-
-    // Step 3: setAgentWallet if agent address provided
-    if (agentAddressInput && /^0x[a-fA-F0-9]{40}$/.test(agentAddressInput)) {
-      await walletClient.writeContract({
-        address: REGISTRY,
-        abi: registryAbi,
-        functionName: 'setAgentWallet',
-        args: [agentIdBig, agentAddressInput as `0x${string}`],
-        account,
-      });
-    }
-
-    mintStatus = 'done';
-    step = 4 as Step;
-  }
-
   // Validation helpers
   $: step2Valid = !!$walletAddress && /^0x[a-fA-F0-9]{40}$/.test(agentAddressInput) && (network !== 'base' || siweVerified);
   $: step3Valid = agentName.trim().length >= 3 && endpoints.some((e) => e.url.trim());
@@ -778,50 +529,20 @@
           <p class="step-sub">Where do you want to register your agent? Both produce an ERC-8004 identity NFT.</p>
 
           <div class="network-cards">
-            {#if network === null || network === 'celo'}
-            <button class="network-card" class:network-card-selected={network === 'celo'} on:click={() => selectNetwork('celo')}>
+            <button class="network-card" on:click={() => selectNetwork('celo')}>
               <div class="network-card-logos">
                 <img src="/logos/Celo_Wordmark_PMS_ProsperityYellow.svg" alt="Celo" class="card-wordmark card-wordmark-celo" />
               </div>
               <div class="network-badge badge badge-celo">Celo Mainnet</div>
               <h3>Celo — Proof of Human</h3>
-              <p>Register with verified proof-of-human on Celo. Choose Self Protocol (passport NFC) or World ID (biometric/device).</p>
+              <p>Register with verified proof-of-human on Celo via Self Protocol (passport NFC + ZK proof).</p>
               <ul class="network-features">
                 <li>Sybil-resistant via cryptographic proof</li>
                 <li>ZK privacy — no personal data revealed</li>
                 <li>Soulbound NFT with on-chain credentials</li>
               </ul>
-              {#if network !== 'celo'}
-                <div class="network-cta btn btn-primary">Select Celo</div>
-              {/if}
-
-              {#if network === 'celo'}
-                <div class="proof-sub-selector">
-                  <p class="step-sub" style="margin-bottom:1rem">Choose your proof-of-human method:</p>
-                  <div class="proof-options">
-                    <button class="proof-option-card" on:click|stopPropagation={() => { celoProofMethod = 'self'; goNext(); }}>
-                      <div class="proof-option-logo">
-                        <img src="/logos/self-logo-white.svg" alt="Self" style="height:18px" />
-                      </div>
-                      <div class="proof-option-body">
-                        <strong>Self Protocol</strong>
-                        <span>Passport NFC scan. ZK proof. ~3 min.</span>
-                        <span class="proof-req">Requires: Self app + passport</span>
-                      </div>
-                    </button>
-                    <button class="proof-option-card" on:click|stopPropagation={() => { celoProofMethod = 'worldid'; goNext(); }}>
-                      <div class="proof-option-logo">🌍</div>
-                      <div class="proof-option-body">
-                        <strong>World ID</strong>
-                        <span>Biometric or device verification. ~1 min.</span>
-                        <span class="proof-req">Requires: World App with World ID</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              {/if}
+              <div class="network-cta btn btn-primary">Select Celo</div>
             </button>
-            {/if}
 
             {#if network === null || network === 'base'}
             <button class="network-card" on:click={() => selectNetwork('base')}>
@@ -1115,7 +836,7 @@
       {:else if step === 3}
         <div class="step-content">
           <h2 class="step-title">
-            {network === 'celo' && celoProofMethod === 'worldid' ? 'World ID verify & mint' : network === 'celo' ? 'Scan passport & mint' : 'Verify & mint on Base'}
+            {network === 'celo' ? 'Scan passport & mint' : 'Verify & mint on Base'}
           </h2>
 
           <div class="card summary-card">
@@ -1126,52 +847,7 @@
             <div class="summary-row"><span>Endpoints</span> <span>{endpoints.filter(e => e.url.trim()).length}</span></div>
           </div>
 
-          {#if network === 'celo' && celoProofMethod === 'worldid'}
-            <!-- World ID verification UI -->
-            {#if worldIdStatus === 'idle'}
-              <div class="card info-card">
-                <h3>Verify with World ID</h3>
-                <p>Open the World App and scan to prove you are a unique human.</p>
-                <ol class="steps-list">
-                  <li>Click "Verify with World ID" below</li>
-                  <li>Scan the QR code with the World App (or tap the link on mobile)</li>
-                  <li>Approve the verification in the World App</li>
-                  <li>Your agent will be minted automatically</li>
-                </ol>
-              </div>
-              <div class="step-nav">
-                <button class="btn btn-secondary" on:click={goBack}>Back</button>
-                <button class="btn btn-primary btn-lg" on:click={startWorldIdVerification}>
-                  Verify with World ID
-                </button>
-              </div>
-            {:else if worldIdStatus === 'pending'}
-              <div class="status-block">
-                <div class="spinner"></div>
-                <p>Waiting for World App verification…</p>
-                {#if worldIdBridgeUrl}
-                  <p class="muted-text mt">
-                    Open in World App:
-                    <a href={worldIdBridgeUrl} target="_blank" rel="noopener">Verify in World App</a>
-                  </p>
-                {/if}
-              </div>
-            {:else if worldIdStatus === 'verified'}
-              <div class="status-block">
-                <div class="spinner"></div>
-                <p>World ID verified! Minting agent on Celo…</p>
-              </div>
-            {:else if worldIdStatus === 'error'}
-              <div class="card error-card">
-                <h3>Verification failed</h3>
-                <p>{worldIdError}</p>
-                <div class="step-nav" style="border-top:none;padding-top:0;margin-top:1rem">
-                  <button class="btn btn-secondary" on:click={goBack}>Back</button>
-                  <button class="btn btn-secondary" on:click={() => { worldIdStatus = 'idle'; }}>Try again</button>
-                </div>
-              </div>
-            {/if}
-          {:else if mintStatus === 'idle'}
+          {#if mintStatus === 'idle'}
             {#if network === 'celo'}
               <div class="card info-card">
                 <h3>What happens next</h3>
@@ -1313,7 +989,6 @@
               siweVerified = false; siweError = ''; identity = null;
               baseQRUri = ''; wantEasAttestation = false; hasEnoughForEas = false;
               coinbaseProvider = null;
-              celoProofMethod = null; worldIdStatus = 'idle'; worldIdError = '';
             }}>Register another agent</a>
           </div>
         </div>
@@ -1506,28 +1181,4 @@
   }
   .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
 
-  /* Proof sub-selector */
-  .network-card-selected { outline-color: var(--brand-offset-blue); }
-  .proof-sub-selector { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
-  .proof-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-  @media (max-width: 480px) { .proof-options { grid-template-columns: 1fr; } }
-  .proof-option-card {
-    background: color-mix(in srgb, var(--foreground) 4%, transparent);
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) * 1.2);
-    padding: 1rem;
-    text-align: left;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    color: var(--card-foreground);
-    transition: border-color 150ms, background 150ms;
-  }
-  .proof-option-card:hover { border-color: var(--brand-offset-blue); background: color-mix(in srgb, var(--brand-offset-blue) 6%, transparent); }
-  .proof-option-logo { font-size: 1.5rem; margin-bottom: 0.25rem; }
-  .proof-option-body { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
-  .proof-option-body strong { font-size: 0.95rem; font-family: var(--font-heading); }
-  .proof-option-body span { color: var(--muted-foreground); }
-  .proof-req { font-size: 0.75rem; color: var(--muted-foreground); border-top: 1px solid var(--border); padding-top: 0.3rem; margin-top: 0.25rem; }
 </style>
