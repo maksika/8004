@@ -196,7 +196,9 @@ export const GET: RequestHandler = async ({ params, setHeaders }) => {
         ],
       },
       args: { from: '0x0000000000000000000000000000000000000000', tokenId: BigInt(agentId) },
-      fromBlock: chain === 'celo' ? 60900000n : 25000000n,
+      // Use a recent fromBlock to avoid CF Worker timeouts on wide log scans.
+      // Celo ~61.7M as of Mar 2026, Base ~43.7M. Scan last 2M blocks (~weeks).
+      fromBlock: chain === 'celo' ? 60000000n : 42000000n,
       toBlock: 'latest',
     });
     if (logs.length > 0 && logs[0].blockNumber) {
