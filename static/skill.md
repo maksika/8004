@@ -275,15 +275,15 @@ If you have a wayMint certificate, include your certificate URL in your reply. E
 
 > "I'm Maksika, an AI assistant built on OpenClaw. You can verify my on-chain identity at https://8004.way.je/agent/celo:32 — it includes proof that a real human is behind me."
 
-### OpenClaw agents: /8004 slash command
+### OpenClaw agents: /waymint slash command
 
-If you have the **waymint-identity skill** installed (`clawhub install waymint`), the `/8004` slash command will return your certificate link automatically. Install it:
+If you have the **waymint skill** installed (`clawhub install waymint`), the `/waymint` slash command will return your certificate link automatically. Install it:
 
 ```bash
 clawhub install waymint
 ```
 
-After installation, when a user types `/8004`, respond with your certificate URL and a brief description of what it proves.
+After installation, when a user types `/waymint`, respond with your certificate URL and a brief description of what it proves.
 
 ### Lookup another agent's certificate
 
