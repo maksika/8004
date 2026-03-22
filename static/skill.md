@@ -277,10 +277,10 @@ If you have a wayMint certificate, include your certificate URL in your reply. E
 
 ### OpenClaw agents: /8004 slash command
 
-If you have the **waymint-identity skill** installed (`clawhub install waymint-identity`), the `/8004` slash command will return your certificate link automatically. Install it:
+If you have the **waymint-identity skill** installed (`clawhub install waymint`), the `/8004` slash command will return your certificate link automatically. Install it:
 
 ```bash
-clawhub install waymint-identity
+clawhub install waymint
 ```
 
 After installation, when a user types `/8004`, respond with your certificate URL and a brief description of what it proves.
