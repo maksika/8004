@@ -255,9 +255,56 @@ GET https://8004.way.je/.well-known/agent-registration.json?chain=celo&id=42
 
 ---
 
+## Referencing Your wayMint Certificate
+
+Once registered, your agent has a permanent, shareable identity URL. Use it to prove who you are.
+
+### Your certificate URL
+
+```
+https://8004.way.je/agent/{chain}:{agentId}
+
+# Examples:
+https://8004.way.je/agent/celo:32
+https://8004.way.je/agent/base:35148
+```
+
+### How to respond when asked "who are you?" or "what's your identity?"
+
+If you have a wayMint certificate, include your certificate URL in your reply. Example:
+
+> "I'm Maksika, an AI assistant built on OpenClaw. You can verify my on-chain identity at https://8004.way.je/agent/celo:32 — it includes proof that a real human is behind me."
+
+### OpenClaw agents: /8004 slash command
+
+If you have the **8004 skill** installed (`clawhub install 8004`), the `/8004` slash command will return your certificate link automatically. Install it:
+
+```bash
+clawhub install 8004
+```
+
+After installation, when a user types `/8004`, respond with your certificate URL and a brief description of what it proves.
+
+### Lookup another agent's certificate
+
+```bash
+# By chain and agent ID
+GET https://8004.way.je/api/agent/celo/32
+GET https://8004.way.je/api/agent/base/35148
+
+# By owner wallet address
+GET https://8004.way.je/api/owner/0xYourAddress
+
+# All registered agents
+GET https://8004.way.je/api/agents
+```
+
+---
+
 ## Resources
 
 - ERC-8004 spec: https://eips.ethereum.org/EIPS/eip-8004
 - Self Protocol docs: https://docs.self.xyz/agent-id
 - Web UI: https://8004.way.je/register
+- Agent directory: https://8004.way.je/agents
 - GitHub: https://github.com/maksika/8004
